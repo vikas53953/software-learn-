@@ -35,7 +35,7 @@ const layout = () => {
   for (const n of nodes) n.g.querySelectorAll('.node-label, .node-sub').forEach((t) => {
     if (t.style.display === 'none') return;
     const tr = t.getBoundingClientRect(), b = n.r;
-    if (tr.width && (tr.right > b.right + 1 || tr.left < b.left - 1 || tr.top < b.top - 1 || tr.bottom > b.bottom + 1)) out.push(`text overflows ${n.id}: "${t.textContent}"`);
+    if (tr.width && (tr.right > b.right + 1 || tr.left < b.left - 1 || tr.top < b.top - 1 || tr.bottom > b.bottom + 1)) out.push(`text overflows ${n.id}: "${t.textContent}" (text ${tr.left.toFixed(1)}..${tr.right.toFixed(1)}, box ${b.left.toFixed(1)}..${b.right.toFixed(1)}, transform "${t.getAttribute('transform') || ''}", font "${getComputedStyle(t).fontFamily}", fonts ${document.fonts.status})`);
   });
   document.querySelectorAll('.edge-label:not(.is-leaving)').forEach((l) => {
     const lr = l.getBoundingClientRect();
