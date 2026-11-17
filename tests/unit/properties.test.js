@@ -104,16 +104,23 @@ describe('properties: text safety', () => {
 
 describe('properties: highlighter', () => {
   const lang = fc.constantFrom('ts', 'js', 'sql', 'yaml', 'text');
-  const code = fc.string({ unit: fc.constantFrom(...'abcSELECT const if // -- # \' " ` < > & 0 1 \n x: (){}'.split(' ').flatMap((w) => [w, ' '])), maxLength: 60 });
+  const code = fc.string({ unit: fc.constantFrom(...'abcSELECT const if // -- # \' " ` < > & \\ 0 1 \n x: (){}'.split(' ').flatMap((w) => [w, ' '])), maxLength: 60 });
   it('only adds span tags: stripping them gives back the source', () => {
     fc.assert(fc.property(code, lang, (src, l) => {
       const out = highlight(src, l);
       expect(unescape(out.replace(/<span class="tk-[a-z]">|<\/span>/g, ''))).toBe(src);
     }), opts);
   });
-  it('never emits a raw "<" outside its own span tags', () => {
-    fc.assert(fc.property(fc.string(), lang, (src, l) => {
-      expect(highlight(src, l).replace(/<span class="tk-[a-z]">|<\/span>/g, '')).not.toMatch(/</);
+  it('never emits a raw "<" or ">" outside its own span tags', () => {
+    fc.assert(fc.property(fc.oneof(fc.string(), code), lang, (src, l) => {
+      expect(highlight(src, l).replace(/<span class="tk-[a-z]">|<\/span>/g, '')).not.toMatch(/[<>]/);
+    }), opts);
+  });
+  it('a quoted string with escaped quotes is one string token', () => {
+    const body = fc.string({ unit: fc.constantFrom('a', ' ', "\\'", '1'), maxLength: 10 });
+    fc.assert(fc.property(body, (b) => {
+      const src = `'${b}'`;
+      expect(highlight(src, 'ts')).toBe(`<span class="tk-s">${src.replace(/&/g, '&amp;')}</span>`);
     }), opts);
   });
 });
