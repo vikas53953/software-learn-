@@ -24,7 +24,7 @@ async function page(viewport, colorScheme = 'light') {
   p.on('pageerror', (e) => fail(`page error: ${e.message}`));
   p.on('console', (m) => {
     if (m.type() !== 'error' && m.type() !== 'warning') return;
-    if (/fonts\.g(oogleapis|static)|Failed to load resource/.test(m.text())) return; // fonts may be offline in CI
+    if (/fonts\.g(oogleapis|static)/.test(`${m.text()} ${m.location().url}`)) return; // web fonts may be offline
     fail(`console ${m.type()}: ${m.text()}`);
   });
   return p;

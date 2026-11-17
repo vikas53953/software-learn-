@@ -1,6 +1,6 @@
 // Example-based tests for the pure parts of the app.
 import { describe, it, expect } from 'vitest';
-import { resolveStep, edgePath } from '../../src/diagram.js';
+import { resolveStep, edgePath, Diagram } from '../../src/diagram.js';
 import { highlight } from '../../src/highlight.js';
 import { esc, md } from '../../src/text.js';
 
@@ -61,5 +61,42 @@ describe('highlight', () => {
   });
   it('treats SQL keywords case-insensitively', () => {
     expect(highlight('SELECT 1', 'sql')).toContain('<span class="tk-k">SELECT</span>');
+  });
+});
+
+describe('Diagram.fit', () => {
+  // A stand-in for an SVG <text> with one <tspan> per line, enough for fit().
+  const fakeText = (...widths) => {
+    const spans = widths.map((w) => {
+      const attrs = new Map();
+      return { w, attrs, getComputedTextLength() { return this.w; }, setAttribute: (k, v) => attrs.set(k, String(v)), removeAttribute: (k) => attrs.delete(k) };
+    });
+    return { spans, querySelectorAll: () => spans };
+  };
+  const fit = (el, room) => Diagram.prototype.fit.call(null, el, room);
+
+  it('squeezes only the lines that overflow, to exactly the room', () => {
+    const t = fakeText(140, 60);
+    fit(t, 94);
+    expect(t.spans[0].attrs.get('textLength')).toBe('94');
+    expect(t.spans[0].attrs.get('lengthAdjust')).toBe('spacingAndGlyphs');
+    expect(t.spans[1].attrs.has('textLength')).toBe(false);
+  });
+  it('drops an earlier squeeze when the text later fits', () => {
+    const t = fakeText(140);
+    fit(t, 94);
+    t.spans[0].w = 40;
+    fit(t, 94);
+    expect(t.spans[0].attrs.has('textLength')).toBe(false);
+    expect(t.spans[0].attrs.has('lengthAdjust')).toBe(false);
+  });
+});
+
+describe('esc edge cases', () => {
+  it('keeps falsy values that are not null or undefined', () => {
+    expect(esc(0)).toBe('0');
+    expect(esc(false)).toBe('false');
+    expect(esc(null)).toBe('');
+    expect(esc(undefined)).toBe('');
   });
 });

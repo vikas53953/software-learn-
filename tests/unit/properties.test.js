@@ -18,6 +18,8 @@ const step = fc.record({
   flows: fc.option(fc.array(pair, { maxLength: 3 }), { nil: undefined }),
   metrics: fc.option(fc.dictionary(fc.constantFrom('m1', 'm2', 'm3'), fc.string({ maxLength: 4 })), { nil: undefined }),
   set: fc.option(fc.dictionary(id, fc.record({ label: fc.string({ maxLength: 4 }) })), { nil: undefined }),
+  zones: fc.option(fc.array(fc.constantFrom('z1', 'z2', 'z3'), { maxLength: 3 }), { nil: undefined }),
+  state: fc.option(fc.dictionary(id, fc.constantFrom('ok', 'bad', 'warn')), { nil: undefined }),
 }, { requiredKeys: [] });
 const lessonArb = fc.array(step, { minLength: 1, maxLength: 8 }).map((steps) => ({
   nodes: Object.fromEntries(IDS.map((k, i) => [k, { x: 80 + i * 150, y: 200 }])),
@@ -26,18 +28,20 @@ const lessonArb = fc.array(step, { minLength: 1, maxLength: 8 }).map((steps) => 
 
 /** Straightforward reference model of how steps fold together. */
 function model(lesson, i) {
-  const shown = new Set(); let edges = [], flows = [], metrics = {}; const set = {};
+  const shown = new Set(); let edges = [], flows = [], zones = [], metrics = {}; const set = {};
   for (const s of lesson.steps.slice(0, i + 1)) {
     for (const x of s.add || []) shown.add(x);
     for (const x of s.remove || []) shown.delete(x);
     if (s.edges) edges = s.edges;
     if (s.flows) flows = s.flows;
+    if (s.zones) zones = s.zones;
     Object.assign(metrics, s.metrics || {});
     for (const [k, v] of Object.entries(s.set || {})) set[k] = { ...set[k], ...v };
   }
-  return { shown: [...shown].sort(), edges, flows, metrics, set };
+  // state is never inherited: it belongs to the step being shown.
+  return { shown: [...shown].sort(), edges, flows, zones, metrics, set, state: lesson.steps[i].state || {} };
 }
-const view = (r) => ({ shown: [...r.shown].sort(), edges: r.edges, flows: r.flows, metrics: r.metrics, set: r.set });
+const view = (r) => ({ shown: [...r.shown].sort(), edges: r.edges, flows: r.flows, zones: r.zones, metrics: r.metrics, set: r.set, state: r.state });
 
 const unescape = (s) => s.replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/&amp;/g, '&');
 
@@ -61,16 +65,34 @@ describe('properties: step folding', () => {
   });
 });
 
+// Plain random strings almost never contain markup characters, so mix in strings built from them.
+const markupy = fc.oneof(
+  fc.string({ unit: 'binary' }),
+  fc.string({ unit: fc.constantFrom('<', '>', '&', '"', "'", '`', '*', 'a', ' ', ';', '#', '?', '|'), maxLength: 30 }),
+);
+
 describe('properties: text safety', () => {
   it('esc round-trips and leaves no raw markup characters', () => {
-    fc.assert(fc.property(fc.string({ unit: 'binary' }), (s) => {
+    fc.assert(fc.property(markupy, (s) => {
       const e = esc(s);
       expect(e).not.toMatch(/[<>"']/);
       expect(unescape(e)).toBe(s);
+      expect(e.replace(/&(amp|lt|gt|quot|#39);/g, '')).not.toMatch(/&/);
+      expect(e.length).toBeGreaterThanOrEqual(s.length);
+    }), opts);
+  });
+  it('esc leaves text without markup characters unchanged', () => {
+    fc.assert(fc.property(fc.string().filter((s) => !/[&<>"']/.test(s)), (s) => { expect(esc(s)).toBe(s); }), opts);
+  });
+  it('md wraps every non-empty `span` in code and leaves empty pairs alone', () => {
+    const word = fc.string({ unit: fc.constantFrom('a', 'b', '1', ' ', '<', '&'), minLength: 1, maxLength: 8 });
+    fc.assert(fc.property(word, (w) => {
+      expect(md('`' + w + '`')).toBe(`<code>${esc(w)}</code>`);
+      expect(md('``')).toBe('``');
     }), opts);
   });
   it('md equals esc for text without markdown markers', () => {
-    fc.assert(fc.property(fc.string().filter((s) => !/[`*]/.test(s)), (s) => { expect(md(s)).toBe(esc(s)); }), opts);
+    fc.assert(fc.property(markupy.filter((s) => !/[`*]/.test(s)), (s) => { expect(md(s)).toBe(esc(s)); }), opts);
   });
   it('md never emits tags other than code and strong', () => {
     fc.assert(fc.property(fc.string(), (s) => {
@@ -106,6 +128,30 @@ describe('properties: edge geometry', () => {
     fc.assert(fc.property(node, node, (a, b) => {
       fc.pre(Math.abs(a.x - b.x) > (a.w + b.w) / 2 + 8 || Math.abs(a.y - b.y) > (a.h + b.h) / 2 + 8);
       const [, x1, y1, x2, y2] = edgePath(a, b).d.match(/M([-\d.]+),([-\d.]+) L([-\d.]+),([-\d.]+)/).map(Number);
+      expect(onBoundary(a, { x: x1, y: y1 })).toBe(true);
+      expect(onBoundary(b, { x: x2, y: y2 })).toBe(true);
+    }), opts);
+  });
+  const far = (a, b) => Math.abs(a.x - b.x) > (a.w + b.w) / 2 + 8 || Math.abs(a.y - b.y) > (a.h + b.h) / 2 + 8;
+  const nums = (d) => d.match(/-?[\d.]+/g).map(Number);
+  it('a straight edge labels its own midpoint', () => {
+    fc.assert(fc.property(node, node, (a, b) => {
+      fc.pre(far(a, b));
+      const { d, mid } = edgePath(a, b), [x1, y1, x2, y2] = nums(d);
+      expect(Math.abs(mid.x - (x1 + x2) / 2)).toBeLessThan(0.11);
+      expect(Math.abs(mid.y - (y1 + y2) / 2)).toBeLessThan(0.11);
+    }), opts);
+  });
+  it('a bent edge curves to the left of a→b for a positive bend and labels the curve midpoint', () => {
+    fc.assert(fc.property(node, node, fc.integer({ min: 10, max: 120 }), (a, b, bend) => {
+      fc.pre(far(a, b));
+      const { d, mid } = edgePath(a, b, bend), [x1, y1, cx, cy, x2, y2] = nums(d);
+      // control point sits on the side given by the left normal (-dy, dx) of a→b
+      const side = (b.x - a.x) * (cy - a.y) - (b.y - a.y) * (cx - a.x);
+      expect(side).toBeGreaterThan(0);
+      // label is the quadratic Bezier at t = 0.5
+      expect(Math.abs(mid.x - (0.25 * x1 + 0.5 * cx + 0.25 * x2))).toBeLessThan(0.2);
+      expect(Math.abs(mid.y - (0.25 * y1 + 0.5 * cy + 0.25 * y2))).toBeLessThan(0.2);
       expect(onBoundary(a, { x: x1, y: y1 })).toBe(true);
       expect(onBoundary(b, { x: x2, y: y2 })).toBe(true);
     }), opts);

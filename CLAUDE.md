@@ -23,7 +23,7 @@ This repository follows the same shipping pipeline as Stockin. The history of ea
 
 - Original content and branding only. Do not copy text, art or layouts from designed-to-scale or any other course.
 - No secrets in the repo. The site is static and has no backend.
-- Everything that reaches `innerHTML` goes through `esc()` or `md()` in `src/text.js`.
+- Everything that reaches `innerHTML` goes through `esc()` or `md()` in `src/text.js`. The only exceptions are `highlight()` (escapes its input itself, covered by properties) and the static SVG strings in `src/icons.js`.
 - Lessons live in `src/content/*.js` as data; `npm run check` must pass.
 
 ## Commands

@@ -8,7 +8,8 @@ every byte except that one chunk: the signature, every other chunk whole
 (length, type, data, CRC, so IHDR, gAMA, tRNS, APNG frames and the rest all
 count), and anything after IEND. A `caBX` anywhere else is hashed like any
 other chunk, because a chunk between IDATs or before IHDR does change what a
-decoder draws. Every other file is hashed whole. Output is
+decoder draws. Every other file is hashed whole. Files in subfolders are
+included and listed by their path relative to DIR (e.g. "sweep/tdd-last.png"). Output is
 `sha256sum`-style: "<hex>  <name>" (two spaces, as sha256sum prints), with
 "[png-no-caBX]" after the name for PNGs.
 
@@ -29,10 +30,11 @@ _SHARE_CHUNK = b"caBX"
 _SKIP = {"SHA256SUMS", "EVIDENCE.sha256"}
 
 
-def fingerprint(path: Path) -> tuple[str, str]:
+def fingerprint(path: Path, name: str | None = None) -> tuple[str, str]:
+    name = name or path.name
     data = path.read_bytes()
     if not data.startswith(_PNG):
-        return hashlib.sha256(data).hexdigest(), path.name
+        return hashlib.sha256(data).hexdigest(), name
     h = hashlib.sha256(_PNG)
     pos, index = len(_PNG), 0
     while pos + 8 <= len(data):
@@ -43,13 +45,14 @@ def fingerprint(path: Path) -> tuple[str, str]:
             h.update(data[pos:end])
         pos, index = end, index + 1
     h.update(data[pos:])  # a truncated chunk or bytes after IEND still count
-    return h.hexdigest(), f"{path.name} [png-no-caBX]"
+    return h.hexdigest(), f"{name} [png-no-caBX]"
 
 
 def listing(folder: Path) -> list[str]:
+    """Every file under the folder, subfolders included, named by its path relative to it."""
     return [
-        "{}  {}".format(*fingerprint(p))
-        for p in sorted(folder.iterdir())
+        "{}  {}".format(*fingerprint(p, p.relative_to(folder).as_posix()))
+        for p in sorted(folder.rglob("*"))
         if p.is_file() and p.name not in _SKIP
     ]
 
