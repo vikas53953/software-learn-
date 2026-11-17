@@ -6,10 +6,20 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "preview": "vite preview",
-    "check": "node scripts/check-content.mjs"
+    "preview": "vite preview --port 4173 --strictPort",
+    "check": "node scripts/check-content.mjs",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "e2e": "node tests/e2e/sweep.mjs",
+    "gates": "npm run lint && npm run check && npm test && npm run build"
   },
   "devDependencies": {
-    "vite": "^6.3.5"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.15.0",
+    "fast-check": "^4.10.2",
+    "globals": "^17.14.0",
+    "playwright": "^1.63.0",
+    "vite": "^6.3.5",
+    "vitest": "^5.1.0"
   }
 }

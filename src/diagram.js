@@ -36,7 +36,7 @@ export function resolveStep(lesson, i) {
 }
 
 /** Point where the ray from a node's centre towards (tx,ty) leaves its rectangle. */
-function exitPoint(n, tx, ty, pad = 3) {
+export function exitPoint(n, tx, ty, pad = 3) {
   const w = (n.w || DEFAULT.w) / 2 + pad, h = (n.h || DEFAULT.h) / 2 + pad;
   const dx = tx - n.x, dy = ty - n.y;
   if (dx === 0 && dy === 0) return { x: n.x, y: n.y };
@@ -44,7 +44,7 @@ function exitPoint(n, tx, ty, pad = 3) {
   return { x: n.x + dx * s, y: n.y + dy * s };
 }
 
-function edgePath(a, b, bend = 0) {
+export function edgePath(a, b, bend = 0) {
   if (!bend) {
     const p = exitPoint(a, b.x, b.y), q = exitPoint(b, a.x, a.y);
     return { d: `M${p.x.toFixed(1)},${p.y.toFixed(1)} L${q.x.toFixed(1)},${q.y.toFixed(1)}`, mid: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 } };
@@ -155,8 +155,8 @@ export class Diagram {
 
   /** Shrink a text element horizontally if it would overflow its node. */
   fit(textEl, room) {
-    textEl.removeAttribute('transform');
-    let w = 0;
+    let w;
+    try { w = textEl.getBBox().width; } catch { return; }
     try { w = textEl.getBBox().width; } catch { return; }
     if (w > room && w > 0) {
       const k = Math.max(0.6, room / w), x = +textEl.querySelector('tspan')?.getAttribute('x') || 0;

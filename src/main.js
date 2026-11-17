@@ -3,6 +3,7 @@ import { MODULES, LESSONS, bySlug } from './content/index.js';
 import { Diagram, resolveStep } from './diagram.js';
 import { icon } from './icons.js';
 import { highlight } from './highlight.js';
+import { esc, md } from './text.js';
 
 const app = document.getElementById('app');
 
@@ -18,8 +19,6 @@ const markSeen = (lesson, i) => {
 const lessonPct = (l) => Math.round((((progress[l.slug] ?? -1) + 1) / l.steps.length) * 100);
 
 // ---------- helpers ----------
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const md = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 const TAGS = { problem: 'Problem', idea: 'Idea', solution: 'Solution', case: 'In practice', tradeoff: 'Trade-off', recap: 'Recap' };
 const CALLOUT = { key: ['bulb', 'Key idea'], tip: ['sparkle', 'Good to know'], warn: ['warn', 'Watch out'] };
 const pad = (n) => String(n).padStart(2, '0');

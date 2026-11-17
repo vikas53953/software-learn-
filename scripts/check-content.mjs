@@ -1,8 +1,11 @@
 // Validates every lesson: references to nodes/zones, tags, learn ticks, metrics keys.
 import { LESSONS } from '../src/content/index.js';
 const TAGS = new Set(['problem', 'idea', 'solution', 'case', 'tradeoff', 'recap']);
-let errors = 0;
-const err = (l, i, m) => { errors++; console.error(`✗ ${l.slug} step ${i + 1}: ${m}`); };
+import { pathToFileURL } from 'node:url';
+
+export function checkContent() {
+const errors = [];
+const err = (l, i, m) => errors.push(`${l.slug} step ${i + 1}: ${m}`);
 const slugs = new Set();
 for (const l of LESSONS) {
   if (slugs.has(l.slug)) err(l, -1, 'duplicate slug'); slugs.add(l.slug);
@@ -31,5 +34,12 @@ for (const l of LESSONS) {
     if (n.x - w / 2 < 0 || n.x + w / 2 > 800 || n.y - h / 2 < 0 || n.y + h / 2 > 460) err(l, -1, `node ${id} outside canvas`);
   }
 }
-console.log(`${LESSONS.length} lessons, ${LESSONS.reduce((a, l) => a + l.steps.length, 0)} steps, ${errors} problems`);
-process.exit(errors ? 1 : 0);
+return errors;
+}
+
+if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+  const errors = checkContent();
+  errors.forEach((e) => console.error(`✗ ${e}`));
+  console.log(`${LESSONS.length} lessons, ${LESSONS.reduce((a, l) => a + l.steps.length, 0)} steps, ${errors.length} problems`);
+  process.exit(errors.length ? 1 : 0);
+}
