@@ -91,10 +91,16 @@ export class Diagram {
     this.clock = 0;
     this.last = performance.now();
     this.raf = requestAnimationFrame(this.tick);
+    this.onFonts = () => this.refit();
+    if (document.fonts) {
+      document.fonts.addEventListener('loadingdone', this.onFonts);
+      document.fonts.ready.then(this.onFonts, () => {});
+    }
   }
 
   destroy() {
     cancelAnimationFrame(this.raf);
+    document.fonts?.removeEventListener('loadingdone', this.onFonts);
     this.svg.remove();
   }
 
@@ -164,6 +170,16 @@ export class Diagram {
     }
   }
 
+  fitNode(n, hasSub = n.sub.style.display !== 'none') {
+    const room = (n.spec.w || DEFAULT.w) / 2 - n.tx - 10;
+    this.fit(n.label, room); if (hasSub) this.fit(n.sub, room);
+  }
+
+  /** Measure again once web fonts arrive: text measured with a fallback font can overflow after the swap. */
+  refit() {
+    for (const n of this.nodeEls.values()) this.fitNode(n);
+  }
+
   render(lesson, stepIndex) {
     if (this.lesson !== lesson) this.loadLesson(lesson);
     const st = resolveStep(lesson, stepIndex);
@@ -184,8 +200,7 @@ export class Diagram {
       n.label.setAttribute('y', top);
       if (ov.sub) { this.setText(n.sub, ov.sub, n.tx); n.sub.setAttribute('y', top + lines * 14 + 1); n.sub.style.display = ''; }
       else n.sub.style.display = 'none';
-      const room = (n.spec.w || DEFAULT.w) / 2 - n.tx - 10;
-      this.fit(n.label, room); if (ov.sub) this.fit(n.sub, room);
+      this.fitNode(n, !!ov.sub);
       if (ov.badge !== undefined && ov.badge !== null && ov.badge !== '') {
         n.bt.textContent = ov.badge;
         n.badge.setAttribute('class', `node-badge tone-${ov.badgeTone || 'accent'}`);

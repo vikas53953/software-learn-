@@ -10,11 +10,17 @@ if (EV) mkdirSync(EV, { recursive: true });
 const problems = [];
 const fail = (m) => problems.push(m);
 
-const browser = await chromium.launch(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {});
+// SWEEP_PROXY lets a sandboxed machine reach the web fonts through an HTTPS proxy.
+const browser = await chromium.launch({
+  ...(process.env.CHROMIUM_PATH ? { executablePath: process.env.CHROMIUM_PATH } : {}),
+  ...(process.env.SWEEP_PROXY ? { proxy: { server: process.env.SWEEP_PROXY, bypass: 'localhost,127.0.0.1' } } : {}),
+});
 
 async function page(viewport, colorScheme = 'light') {
-  const ctx = await browser.newContext({ viewport, colorScheme });
+  const ctx = await browser.newContext({ viewport, colorScheme, ignoreHTTPSErrors: !!process.env.SWEEP_PROXY });
   const p = await ctx.newPage();
+  // Hold web font files back so diagrams first render with fallback fonts and must re-measure on swap.
+  await p.route(/fonts\.gstatic\.com/, async (r) => { await new Promise((ok) => setTimeout(ok, 1500)); await r.continue().catch(() => {}); });
   p.on('pageerror', (e) => fail(`page error: ${e.message}`));
   p.on('console', (m) => {
     if (m.type() !== 'error' && m.type() !== 'warning') return;
