@@ -159,14 +159,20 @@ export class Diagram {
     });
   }
 
-  /** Shrink a text element horizontally if it would overflow its node. */
+  /**
+   * Squeeze each line of a text element that would overflow its node. textLength makes the
+   * browser draw the line at exactly `room` units, whatever font it ends up rendering with.
+   */
   fit(textEl, room) {
-    let w;
-    try { w = textEl.getBBox().width; } catch { return; }
-    try { w = textEl.getBBox().width; } catch { return; }
-    if (w > room && w > 0) {
-      const k = Math.max(0.6, room / w), x = +textEl.querySelector('tspan')?.getAttribute('x') || 0;
-      textEl.setAttribute('transform', `translate(${x * (1 - k)},0) scale(${k},1)`);
+    for (const t of textEl.querySelectorAll('tspan')) {
+      t.removeAttribute('textLength');
+      t.removeAttribute('lengthAdjust');
+      let w;
+      try { w = t.getComputedTextLength(); } catch { continue; }
+      if (w > room) {
+        t.setAttribute('textLength', room);
+        t.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+      }
     }
   }
 
