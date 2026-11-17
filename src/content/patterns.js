@@ -116,7 +116,7 @@ class OrderEvents {
       ],
       code: { lang: 'ts', src: `emit(e: OrderPlaced) {
   for (const l of this.listeners) {
-    queueMicrotask(() =>
+    setImmediate(() => // after the current I/O turn, not before it
       l(e).catch(err => log.error({ err, listener: l.name })));
   }
 }` },

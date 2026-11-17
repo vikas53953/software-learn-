@@ -36,7 +36,7 @@ export function resolveStep(lesson, i) {
 }
 
 /** Point where the ray from a node's centre towards (tx,ty) leaves its rectangle. */
-function exitPoint(n, tx, ty, pad = 3) {
+export function exitPoint(n, tx, ty, pad = 3) {
   const w = (n.w || DEFAULT.w) / 2 + pad, h = (n.h || DEFAULT.h) / 2 + pad;
   const dx = tx - n.x, dy = ty - n.y;
   if (dx === 0 && dy === 0) return { x: n.x, y: n.y };
@@ -44,7 +44,7 @@ function exitPoint(n, tx, ty, pad = 3) {
   return { x: n.x + dx * s, y: n.y + dy * s };
 }
 
-function edgePath(a, b, bend = 0) {
+export function edgePath(a, b, bend = 0) {
   if (!bend) {
     const p = exitPoint(a, b.x, b.y), q = exitPoint(b, a.x, a.y);
     return { d: `M${p.x.toFixed(1)},${p.y.toFixed(1)} L${q.x.toFixed(1)},${q.y.toFixed(1)}`, mid: { x: (p.x + q.x) / 2, y: (p.y + q.y) / 2 } };
@@ -91,10 +91,16 @@ export class Diagram {
     this.clock = 0;
     this.last = performance.now();
     this.raf = requestAnimationFrame(this.tick);
+    this.onFonts = () => this.refit();
+    if (document.fonts) {
+      document.fonts.addEventListener('loadingdone', this.onFonts);
+      document.fonts.ready.then(this.onFonts, () => {});
+    }
   }
 
   destroy() {
     cancelAnimationFrame(this.raf);
+    document.fonts?.removeEventListener('loadingdone', this.onFonts);
     this.svg.remove();
   }
 
@@ -153,15 +159,31 @@ export class Diagram {
     });
   }
 
-  /** Shrink a text element horizontally if it would overflow its node. */
+  /**
+   * Squeeze each line of a text element that would overflow its node. textLength makes the
+   * browser draw the line at exactly `room` units, whatever font it ends up rendering with.
+   */
   fit(textEl, room) {
-    textEl.removeAttribute('transform');
-    let w = 0;
-    try { w = textEl.getBBox().width; } catch { return; }
-    if (w > room && w > 0) {
-      const k = Math.max(0.6, room / w), x = +textEl.querySelector('tspan')?.getAttribute('x') || 0;
-      textEl.setAttribute('transform', `translate(${x * (1 - k)},0) scale(${k},1)`);
+    for (const t of textEl.querySelectorAll('tspan')) {
+      t.removeAttribute('textLength');
+      t.removeAttribute('lengthAdjust');
+      let w;
+      try { w = t.getComputedTextLength(); } catch { continue; }
+      if (w > room) {
+        t.setAttribute('textLength', room);
+        t.setAttribute('lengthAdjust', 'spacingAndGlyphs');
+      }
     }
+  }
+
+  fitNode(n, hasSub = n.sub.style.display !== 'none') {
+    const room = (n.spec.w || DEFAULT.w) / 2 - n.tx - 10;
+    this.fit(n.label, room); if (hasSub) this.fit(n.sub, room);
+  }
+
+  /** Measure again once web fonts arrive: text measured with a fallback font can overflow after the swap. */
+  refit() {
+    for (const n of this.nodeEls.values()) this.fitNode(n);
   }
 
   render(lesson, stepIndex) {
@@ -184,8 +206,7 @@ export class Diagram {
       n.label.setAttribute('y', top);
       if (ov.sub) { this.setText(n.sub, ov.sub, n.tx); n.sub.setAttribute('y', top + lines * 14 + 1); n.sub.style.display = ''; }
       else n.sub.style.display = 'none';
-      const room = (n.spec.w || DEFAULT.w) / 2 - n.tx - 10;
-      this.fit(n.label, room); if (ov.sub) this.fit(n.sub, room);
+      this.fitNode(n, !!ov.sub);
       if (ov.badge !== undefined && ov.badge !== null && ov.badge !== '') {
         n.bt.textContent = ov.badge;
         n.badge.setAttribute('class', `node-badge tone-${ov.badgeTone || 'accent'}`);

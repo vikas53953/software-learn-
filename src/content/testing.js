@@ -59,9 +59,9 @@ export const pyramid = {
       remove: ['cE2e', 'cInt', 'cUnit'],
       add: ['pUnit', 'fast'],
       state: { pUnit: 'hl' },
-      metrics: { time: '20 s (unit)', locate: 'seconds' },
+      metrics: { time: '≈ 5 s (unit)', locate: 'seconds' },
       body: [
-        'Pricing rules, validation, date maths and state machines get unit tests. There will be many of them, and that is fine: 1,200 tests at a few milliseconds each finish in about 20 seconds.',
+        'Pricing rules, validation, date maths and state machines get unit tests. There will be many of them, and that is fine: 1,200 tests at a few milliseconds each finish in a few seconds.',
         'Logic that is hard to unit test is usually logic tangled up with I/O. Separating them (see Dependency Inversion) is what makes this layer possible.',
       ],
       done: 2,

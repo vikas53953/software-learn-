@@ -1,0 +1,38 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run check
+      - run: npm test
+      - name: Properties, deep profile
+        run: FC_PROFILE=deep npx vitest run tests/unit/properties.test.js
+      - run: npm run build
+      - run: npx playwright install --with-deps chromium
+      - name: Sweep every step in a real browser
+        run: |
+          npm run preview &
+          npx --yes wait-on@8.0.3 -t 30000 http-get://localhost:4173/
+          EVIDENCE="$RUNNER_TEMP/evidence" npm run e2e
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: e2e-screenshots
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: ignore

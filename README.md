@@ -8,8 +8,13 @@ An interactive software engineering course. Every concept is an animated diagram
 ```bash
 npm install
 npm run dev      # local dev server
-npm run check    # validate lesson content (node refs, tags, canvas bounds)
-npm run build    # static site in dist/ (deploy anywhere, e.g. Vercel with the Vite preset)
+npm run gates    # lint, content check, unit + property tests, build
+npm run preview & npm run e2e   # sweep every step in a real browser
+```
+
+How changes are verified and merged is in `CLAUDE.md` and `docs/PIPELINE.md`.
+```bash
+npm run build    # static site in dist/ (deployed by Vercel on every push)
 ```
 
 ## How it is built

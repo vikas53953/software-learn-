@@ -3,6 +3,7 @@ import { MODULES, LESSONS, bySlug } from './content/index.js';
 import { Diagram, resolveStep } from './diagram.js';
 import { icon } from './icons.js';
 import { highlight } from './highlight.js';
+import { esc, md } from './text.js';
 
 const app = document.getElementById('app');
 
@@ -18,8 +19,6 @@ const markSeen = (lesson, i) => {
 const lessonPct = (l) => Math.round((((progress[l.slug] ?? -1) + 1) / l.steps.length) * 100);
 
 // ---------- helpers ----------
-const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const md = (s) => esc(s).replace(/`([^`]+)`/g, '<code>$1</code>').replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
 const TAGS = { problem: 'Problem', idea: 'Idea', solution: 'Solution', case: 'In practice', tradeoff: 'Trade-off', recap: 'Recap' };
 const CALLOUT = { key: ['bulb', 'Key idea'], tip: ['sparkle', 'Good to know'], warn: ['warn', 'Watch out'] };
 const pad = (n) => String(n).padStart(2, '0');
@@ -334,7 +333,7 @@ function setStep(i) {
   const nextLabel = isLast ? (nextLesson ? `Next lesson: ${nextLesson.short}` : 'Back to the course') : `Next: ${l.steps[i + 1].label}`;
   const c = s.callout && CALLOUT[s.callout.type];
   main.querySelector('.narrative').innerHTML = `
-    <div class="narr-top"><span class="step-no">Step ${i + 1} / ${l.steps.length}</span><span class="tag tag-${s.tag}">${TAGS[s.tag] || s.tag}</span></div>
+    <div class="narr-top"><span class="step-no">Step ${i + 1} / ${l.steps.length}</span><span class="tag tag-${esc(s.tag)}">${esc(TAGS[s.tag] || s.tag)}</span></div>
     <h2>${esc(s.title)}</h2>
     <div class="narr-body">
       ${(s.body || []).map((p) => `<p>${md(p)}</p>`).join('')}
