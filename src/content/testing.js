@@ -68,13 +68,14 @@ export const doubles = {
       add: ['test', 'sut', 'db', 'mail', 'clock', 'captcha'],
       edges: [['test', 'sut'], ['sut', 'db'], ['sut', 'mail'], ['sut', 'clock'], ['sut', 'captcha']],
       flows: [['test', 'sut', { n: 1, dur: 2.6 }], ['sut', 'db', { n: 1, dur: 2.6 }], ['sut', 'mail', { n: 1, dur: 2.6, delay: 0.3 }], ['sut', 'captcha', { n: 1, dur: 2.6, delay: 0.6 }]],
-      state: { mail: 'warn', captcha: 'warn', clock: 'warn' },
+      state: { db: 'bad', mail: 'bad', captcha: 'bad', clock: 'bad' },
       metrics: { time: '3.8 s', det: 'no', real: '4' },
       blocks: [
         { lang: 'ts', code: `test('new users get a welcome email and a 14-day trial', async () => {
   const service = new SignupService(postgres, emailApi, systemClock, captcha);
   const user = await service.signUp('ana@example.com');
-  expect(user.trialEndsAt).toEqual(addDays(new Date(), 14));
+  // trialEndsOn is a calendar day, such as '2026-01-29'
+  expect(user.trialEndsOn).toBe(isoDay(addDays(new Date(), 14)));
 });` },
         { p: 'The [[sut|system under test]] is `SignupService`. The other four are collaborators, and every one of them is real.' },
         { callout: 'illus', title: 'About the numbers', text: 'Test times in this lesson are illustrative, chosen to show the size of the difference.' },
@@ -86,7 +87,7 @@ export const doubles = {
       read: { tiles: [tile('Runs', '5', 'no code changes'), tile('Failed', '2', 'network, clock', 'bad'), tile('Slowest', '30 s', 'a timeout', 'bad')] },
       blocks: [
         { p: 'A [[flaky|flaky test]] trains people to press "re-run" instead of reading the failure. Soon a real bug gets re-run too.' },
-        { ul: ['**Network:** the captcha and email services can be slow or down.', '**Time:** `new Date()` in the code and in the test are read at different moments.', '**Shared state:** the database still holds `ana@example.com` from the last run.'] },
+        { ul: ['**Network:** the captcha and email services can be slow or down.', '**Time:** `new Date()` in the code and in the test are read at different moments. If midnight passes in between, they land on different days.'] },
       ],
     },
     {
@@ -96,13 +97,13 @@ export const doubles = {
       add: ['stubClock', 'stubCaptcha'],
       edges: [['test', 'sut'], ['sut', 'db'], ['sut', 'mail'], ['sut', 'stubClock'], ['sut', 'stubCaptcha']],
       flows: [['sut', 'stubClock', { n: 1, tone: 'ok' }], ['sut', 'stubCaptcha', { n: 1, tone: 'ok' }]],
-      state: { stubClock: 'ok', stubCaptcha: 'ok', mail: 'warn' },
+      state: { db: 'bad', mail: 'bad' },
       metrics: { time: '1.2 s', det: 'almost', real: '2' },
       blocks: [
         { lang: 'ts', code: `const clock = { now: () => new Date('2026-01-15T09:00:00Z') };
 const captcha = { verify: async () => true };
 
-expect(user.trialEndsAt).toEqual(new Date('2026-01-29T09:00:00Z'));` },
+expect(user.trialEndsOn).toBe('2026-01-29');` },
         { callout: 'key', title: 'Use a stub for', text: 'Inputs your code reads: the time, random numbers, configuration, feature flags, "is this a human?".' },
         { p: 'This only works because `SignupService` takes the clock as a parameter instead of calling `new Date()` itself. Code that is easy to test this way is usually easier to change, too.' },
       ],
@@ -114,7 +115,7 @@ expect(user.trialEndsAt).toEqual(new Date('2026-01-29T09:00:00Z'));` },
       add: ['fakeDb'],
       edges: [['test', 'sut'], ['sut', 'fakeDb'], ['sut', 'mail'], ['sut', 'stubClock'], ['sut', 'stubCaptcha']],
       flows: [['sut', 'fakeDb', { n: 2, tone: 'ok' }]],
-      state: { fakeDb: 'ok', mail: 'warn' },
+      state: { mail: 'bad' },
       metrics: { time: '1.1 s', det: 'yes', real: '1' },
       blocks: [
         { lang: 'ts', code: `class InMemoryUsers implements UserRepo {
@@ -129,13 +130,14 @@ expect(user.trialEndsAt).toEqual(new Date('2026-01-29T09:00:00Z'));` },
       ],
     },
     {
-      lvl: 'basics', label: 'Predict', title: 'Predict: three of four replaced', done: 2,
+      lvl: 'basics', label: 'Predict', title: 'Predict: the slowest part', done: 2,
       say: 'Clock, captcha and database are now doubles. Only the email API is still real.',
+      state: { mail: 'bad' },
       check: {
-        type: 'predict', q: 'With three of the four collaborators replaced, roughly how long does the test take now?',
-        opts: [{ t: 'A few milliseconds' }, { t: 'Still around a second' }, { t: 'Still about 4 seconds' }],
-        fb: ['The three local doubles are instant, but one real network call is left.', '', 'Most of the waiting was the network and the database. Three of those are gone.'],
-        ans: 1, why: 'The test waits for the one remaining network call: the real email API. One slow collaborator sets the speed of the whole test, which is why the next step replaces it too.',
+        type: 'predict', q: 'Three of the four collaborators are now doubles. Which one decides how long the test takes?',
+        opts: [{ t: 'The in-memory fake database' }, { t: 'The real email API' }, { t: 'The fixed clock' }],
+        fb: ['The fake is a map in memory: it answers in microseconds.', '', 'A stub hands back a fixed value instantly.'],
+        ans: 1, why: 'The test waits for the one remaining network call: the real email API, about a second here. One slow collaborator sets the speed of the whole test, which is why the next step replaces it too.',
       },
     },
     {
@@ -154,6 +156,12 @@ const mailer = { send: async (e: Email) => { sent.push(e); } };
 await new SignupService(users, mailer, clock, captcha).signUp('ana@example.com');
 
 expect(sent).toEqual([expect.objectContaining({ to: 'ana@example.com', template: 'welcome' })]);` },
+        { p: 'Test libraries build spies for you. In Vitest, `vi.fn()` records its calls, and matchers such as `toHaveBeenCalledWith` read them:' },
+        { lang: 'ts', code: `const mailer = { send: vi.fn() };
+await new SignupService(users, mailer, clock, captcha).signUp('ana@example.com');
+expect(mailer.send).toHaveBeenCalledTimes(1);
+expect(mailer.send).toHaveBeenCalledWith(expect.objectContaining({ template: 'welcome' }));` },
+        { p: 'A strict **mock** turns this around: you declare the expected calls before running the code, and any unexpected call fails the test at once. Prefer the spy by default; reach for a strict mock when an extra call, such as a second charge, must never happen.' },
         { table: { head: ['Double', 'What it does'], rows: [
           ['Dummy', 'Fills a parameter; never actually used'],
           ['Stub', 'Returns canned answers'],
@@ -188,8 +196,8 @@ expect(sent).toEqual([expect.objectContaining({ to: 'ana@example.com', template:
     },
     {
       lvl: 'intermediate', label: 'Over-mocking', title: 'Mock the edges, not the middle', scene: 'dblOverMock', done: 3,
-      say: 'If a test replaces every class the service uses, it describes the implementation line by line. Rename one internal class and nine tests fail, though nothing is broken.',
-      read: { tiles: [tile('Behaviour changed', 'no', 'a rename only'), tile('Edge-mocked suite', '12 ✓', 'still green', 'good'), tile('Mock-everything suite', '9 ✗', 'false alarms', 'bad')] },
+      say: 'If a test replaces every class the service uses, it describes the implementation line by line. Fold one small internal class into the service and nine tests fail, though nothing is broken.',
+      read: { tiles: [tile('Behaviour changed', 'no', 'one class inlined'), tile('Edge-mocked suite', '12 ✓', 'still green', 'good'), tile('Mock-everything suite', '9 ✗', 'false alarms', 'bad')] },
       blocks: [
         { lang: 'ts', code: `// Over-mocked: pins how signUp works, not what it does
 expect(validator.check).toHaveBeenCalledWith('ana@example.com');
@@ -201,7 +209,7 @@ expect(pricing.trialDays).toHaveBeenCalledTimes(1);` },
     {
       lvl: 'intermediate', label: 'Own it', title: 'Don\'t mock what you don\'t own', scene: 'dblOwn', done: 3,
       say: 'Mocking a vendor SDK directly bakes your guess about it into hundreds of tests. Wrap it in a small interface of your own, mock that, and test the wrapper against the vendor\'s sandbox.',
-      read: { tiles: [tile('Unit tests mock', 'PaymentGateway', 'your interface'), tile('Adapter tests use', 'sandbox', 'the real API, test mode'), tile('Vendor changes', '1 file', 'the adapter', 'good')] },
+      read: { tiles: [tile('Unit tests mock', 'your own', 'interface, not the SDK'), tile('Adapter tests use', 'sandbox', 'the real API, test mode'), tile('Vendor changes', '1 file', 'the adapter', 'good')] },
       blocks: [
         { lang: 'ts', code: `export interface PaymentGateway {
   charge(paymentMethodId: string, cents: number): Promise<ChargeId>;
@@ -223,7 +231,7 @@ export class StripeGateway implements PaymentGateway {
     {
       lvl: 'intermediate', label: 'Honest fakes', title: 'Keep fakes honest with one shared suite', scene: 'dblContract', done: 4,
       say: 'A fake is only useful while it behaves like the real thing. Run the same contract tests against both, and drift shows up as a red test, not a production bug.',
-      read: { tiles: [tile('Suites', '1', 'run twice'), tile('Implementations', '2', 'fake and Postgres'), tile('Drift caught', 'in CI', 'not in production', 'good')] },
+      read: { tiles: [tile('Suites', '1', 'run twice'), tile('Backends', '2', 'fake and Postgres'), tile('Drift caught', 'in CI', 'not in production', 'good')] },
       blocks: [
         { lang: 'ts', code: `describe.each([
   ['InMemoryUsers', () => new InMemoryUsers()],
@@ -316,19 +324,19 @@ export const tdd = {
       lvl: 'basics', label: 'Red 1', title: 'First test: lower case and hyphens', scene: 'tddBoard', done: 1,
       say: 'Describe the behaviour from the caller\'s side. slugify does not exist yet, so the test fails.',
       board: { phase: 'red', tests: [[T1, 'red']], code: ['// nothing yet'] },
-      read: { term: [['cmd', 'npx vitest run slugify'], ['no', '✗ lower-cases and joins words with hyphens'], ['dim', '  ReferenceError: slugify is not defined']] },
+      read: { term: [['cmd', 'npx vitest run slugify'], ['no', 'lower-cases and joins words with hyphens'], ['dim', '  ReferenceError: slugify is not defined']] },
       blocks: [
         { lang: 'ts', code: `test('lower-cases and joins words with hyphens', () => {
   expect(slugify('Hello World')).toBe('hello-world');
 });` },
-        { p: 'Read the failure. "slugify is not defined" is the right reason to fail. A test failing for the wrong reason, such as a typo in the test, teaches you nothing.' },
+        { p: 'Read the failure. Nothing is written or imported yet, so "slugify is not defined" is the right reason to fail. A test failing for the wrong reason, such as a typo in the test, teaches you nothing.' },
       ],
     },
     {
       lvl: 'basics', label: 'Green 1', title: 'The simplest code that passes', scene: 'tddBoard', done: 2,
       say: 'Resist writing the complete version. Write only what the test demands, so every line of code is there because a test asked for it.',
       board: { phase: 'green', tests: [[T1, 'green']], code: ['export const slugify =', '  (t: string) =>', '    t.toLowerCase()', "     .split(' ')", "     .join('-');"] },
-      read: { term: [['cmd', 'npx vitest run slugify'], ['ok', '✓ lower-cases and joins words with hyphens', '2 ms']] },
+      read: { term: [['cmd', 'npx vitest run slugify'], ['ok', 'lower-cases and joins words with hyphens', '2 ms']] },
       blocks: [
         { lang: 'ts', code: `export const slugify = (t: string) =>
   t.toLowerCase().split(' ').join('-');` },
@@ -339,7 +347,7 @@ export const tdd = {
       lvl: 'basics', label: 'Red 2', title: 'Next test: punctuation and extra spaces', scene: 'tddBoard', done: 2,
       say: 'A real title has punctuation and stray spaces. Write that as the next test, and watch it fail for the right reason.',
       board: { phase: 'red', tests: [[T1, 'green'], [T2, 'red']], code: ['export const slugify =', '  (t: string) =>', '    t.toLowerCase()', "     .split(' ')", "     .join('-');"] },
-      read: { term: [['cmd', 'npx vitest run slugify'], ['ok', '✓ lower-cases and joins words with hyphens'], ['no', '✗ drops punctuation and collapses spaces'], ['dim', "  expected 'ship-it-now'"], ['dim', "  received '--ship-it-—-now!--'"]] },
+      read: { term: [['cmd', 'npx vitest run slugify'], ['ok', 'lower-cases and joins words with hyphens'], ['no', 'drops punctuation and collapses spaces'], ['dim', "  expected 'ship-it-now'"], ['dim', "  received '--ship-it-—-now!--'"]] },
       blocks: [
         { lang: 'ts', code: `test('drops punctuation and collapses spaces', () => {
   expect(slugify('  Ship it — now!  ')).toBe('ship-it-now');
@@ -351,7 +359,7 @@ export const tdd = {
       lvl: 'basics', label: 'Green 2', title: 'Make both pass', scene: 'tddBoard', done: 2,
       say: 'Replace every run of characters that are not letters or digits with one hyphen, then trim hyphens from both ends.',
       board: { phase: 'green', tests: [[T1, 'green'], [T2, 'green']], code: ['export const slugify =', '  (t: string) =>', '    t.toLowerCase()', "     .replace(/[^a-z0-9]+/g, '-')", "     .replace(/^-+|-+$/g, '');"] },
-      read: { term: [['cmd', 'npx vitest run slugify'], ['ok', '✓ lower-cases and joins words with hyphens'], ['ok', '✓ drops punctuation and collapses spaces'], ['ok', '2 passed']] },
+      read: { term: [['cmd', 'npx vitest run slugify'], ['ok', 'lower-cases and joins words with hyphens'], ['ok', 'drops punctuation and collapses spaces'], ['ok', '2 passed']] },
       blocks: [
         { lang: 'ts', code: `export const slugify = (t: string) =>
   t.toLowerCase()
@@ -372,7 +380,7 @@ export const tdd = {
     },
     {
       lvl: 'basics', label: 'Predict', title: 'Predict: accents', scene: 'tddBoard', done: 3,
-      board: { phase: 'red', tests: [[T1, 'green'], [T2, 'green']], code: ['export const slugify =', '  (t: string) =>', '    t.toLowerCase()', "     .replace(NON_ALNUM, '-')", "     .replace(EDGE_DASH, '');", '', "slugify('Crème brûlée') // ?"] },
+      board: { phase: null, tests: [[T1, 'green'], [T2, 'green']], code: ['export const slugify =', '  (t: string) =>', '    t.toLowerCase()', "     .replace(NON_ALNUM, '-')", "     .replace(EDGE_DASH, '');", '', "slugify('Crème brûlée') // ?"], note: 'no test yet: what will it return?' },
       say: 'Before writing a test for "Crème brûlée", predict what today\'s code returns.',
       check: {
         type: 'predict', q: 'What does the current `slugify(\'Crème brûlée\')` return?',
@@ -384,8 +392,11 @@ export const tdd = {
     {
       lvl: 'basics', label: 'Red, green', title: 'New behaviour gets its own red test', scene: 'tddBoard', done: 3,
       say: 'Write the accent test, see it fail, then pass it by splitting each accented letter into a base letter plus a mark, and dropping the marks.',
-      board: { phase: 'green', tests: [[T1, 'green'], [T2, 'green'], [T3, 'green']], code: ['const plain = (t: string) =>', "  t.normalize('NFKD')", "   .replace(/[\\u0300-\\u036f]/g, '');", '', 'export const slugify =', '  (t: string) =>', '    plain(t).toLowerCase()', "     .replace(NON_ALNUM, '-')", "     .replace(EDGE_DASH, '');"] },
-      read: { term: [['cmd', 'npx vitest run slugify'], ['ok', '✓ lower-cases and joins words with hyphens'], ['ok', '✓ drops punctuation and collapses spaces'], ['ok', '✓ removes accents']] },
+      board: {
+        before: { phase: 'red', tests: [[T1, 'green'], [T2, 'green'], [T3, 'red']], code: ['export const slugify =', '  (t: string) =>', '    t.toLowerCase()', "     .replace(NON_ALNUM, '-')", "     .replace(EDGE_DASH, '');"], note: 'the accent test fails first' },
+        phase: 'green', tests: [[T1, 'green'], [T2, 'green'], [T3, 'green']], code: ['const MARKS = /[\\u0300-\\u036f]/g;', 'const plain = (t: string) =>', "  t.normalize('NFKD')", "   .replace(MARKS, '');", 'export const slugify =', '  (t: string) =>', '    plain(t).toLowerCase()', "     .replace(NON_ALNUM, '-')", "     .replace(EDGE_DASH, '');"],
+      },
+      read: { term: [['cmd', 'npx vitest run slugify'], ['no', 'removes accents'], ['dim', "  expected 'creme-brulee'"], ['dim', "  received 'cr-me-br-l-e'"], ['cmd', 'npx vitest run slugify'], ['ok', '3 passed', 'after the fix']] },
       blocks: [
         { lang: 'ts', code: `test('removes accents', () => {
   expect(slugify('Crème brûlée')).toBe('creme-brulee');
@@ -394,8 +405,8 @@ export const tdd = {
       ],
     },
     {
-      lvl: 'intermediate', label: 'Check', title: 'Quick check', scene: 'tddLoop', done: 3,
-      say: 'Where does production code get written in the loop?',
+      lvl: 'basics', label: 'Check', title: 'Quick check', scene: 'tddLoop', done: 3,
+      say: 'New behaviour turns up during a refactor. What now?',
       check: {
         type: 'choice', q: 'You are in the **refactor** step, and you notice an easy way to also support emoji in titles. What should you do?',
         opts: [
@@ -409,8 +420,11 @@ export const tdd = {
     {
       lvl: 'intermediate', label: 'Bugs', title: 'Every bug fix starts with a failing test', scene: 'tddBoard', done: 4,
       say: 'A user reports that a title of only punctuation gives an empty URL. First write a test that reproduces the bug and fails. Then fix it.',
-      board: { phase: 'red', tests: [[T1, 'green'], [T2, 'green'], [T3, 'green'], [T4, 'red']], code: ['export const slugify =', '  (t: string) =>', '    plain(t).toLowerCase()', "     .replace(NON_ALNUM, '-')", "     .replace(EDGE_DASH, '')", "  // '!!!' gives '' today"], note: 'reproduce first: then you know the fix fixed it' },
-      read: { term: [['cmd', 'npx vitest run slugify'], ['no', "✗ gives a fallback for titles with no letters"], ['dim', "  expected 'untitled'"], ['dim', "  received ''"]] },
+      board: {
+        before: { phase: 'red', tests: [[T1, 'green'], [T2, 'green'], [T3, 'green'], [T4, 'red']], code: ['export const slugify =', '  (t: string) =>', '    plain(t).toLowerCase()', "     .replace(NON_ALNUM, '-')", "     .replace(EDGE_DASH, '');", "// '!!!' gives '' today"], note: 'reproduce the bug first' },
+        phase: 'green', tests: [[T1, 'green'], [T2, 'green'], [T3, 'green'], [T4, 'green']], code: ['export const slugify =', '  (t: string) =>', '    plain(t).toLowerCase()', "     .replace(NON_ALNUM, '-')", "     .replace(EDGE_DASH, '')", "     || 'untitled';"], note: 'now the fix is proven, and the test stays',
+      },
+      read: { term: [['cmd', 'npx vitest run slugify'], ['no', "gives a fallback for titles with no letters"], ['dim', "  expected 'untitled'"], ['dim', "  received ''"]] },
       blocks: [
         { lang: 'ts', code: `test('gives a fallback for titles with no letters', () => {
   expect(slugify('!!!')).toBe('untitled');

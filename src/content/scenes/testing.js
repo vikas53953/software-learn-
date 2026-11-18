@@ -2,9 +2,9 @@
 // Everything stays inside the 480×300 box; colours change only through el.style.
 
 const box = (k, x, y, w, h, fill, extra = {}, p) => k.mk('rect', { x, y, width: w, height: h, rx: 10, fill, stroke: 'var(--ink)', 'stroke-width': 2.2, ...extra }, p);
-const chip = (k, x, y, ok) => {
-  const c = k.mk('circle', { cx: x, cy: y, r: 8, fill: ok === null ? 'var(--surface-3)' : ok ? 'var(--ok)' : 'var(--bad)', stroke: 'var(--ink)', 'stroke-width': 1.2 });
-  const t = k.tx(x, y + 3.5, ok === null ? '' : ok ? '✓' : '✗', { class: 's-white', 'text-anchor': 'middle', 'font-size': 10, 'font-weight': 700 });
+const chip = (k, x, y, ok, p) => {
+  const c = k.mk('circle', { cx: x, cy: y, r: 9, fill: ok === null ? 'var(--surface-3)' : ok ? 'var(--ok)' : 'var(--bad)', stroke: 'var(--ink)', 'stroke-width': 1.2 }, p);
+  const t = k.tx(x, y + 4, ok === null ? '' : ok ? '✓' : '✗', { class: 's-white', 'text-anchor': 'middle', 'font-size': 12, 'font-weight': 700 }, p);
   return [c, t];
 };
 
@@ -12,7 +12,7 @@ const chip = (k, x, y, ok) => {
 function code(k, x, y, lines, p) {
   return lines.map((ln, i) => {
     const pad = ln.length - ln.trimStart().length;
-    return k.tx(x + pad * 6.6, y + i * 17, ln.trimStart(), { class: 's-code' }, p);
+    return k.tx(x + pad * 7.2, y + i * 17, ln.trimStart(), { class: 's-code' }, p);
   });
 }
 
@@ -33,7 +33,7 @@ export const scenes = {
       const c = k.mk('circle', { cx: 110, cy: y + 17, r: 9, fill: ok ? 'var(--ok)' : 'var(--bad)', stroke: 'var(--ink)', 'stroke-width': 1.2 }, g);
       tx(110, y + 21, ok ? '✓' : '✗', { class: 's-white', 'text-anchor': 'middle', 'font-size': 11, 'font-weight': 700 }, g);
       tx(136, y + 22, ms, { class: 's-mono' }, g);
-      tx(200, y + 22, why, { class: 's-red' }, g);
+      tx(200, y + 22, why, { class: 's-red' }, g).style.fontSize = '13px';
       return { g, c };
     });
     const verdict = tx(240, 284, '2 of 5 red, and the code never changed', { class: 's-red', 'text-anchor': 'middle' });
@@ -99,11 +99,11 @@ export const scenes = {
     [R.b, R.c].forEach((r) => { r.style.fill = 'var(--amber-soft)'; });
     loop((T) => {
       const t = k.reduced ? 6 : T % 8, refactored = t > 3.5; // reduced motion: show the result
-      for (const S of [L, R]) S.bt.textContent = refactored ? 'Rules' : 'Validator';
+      for (const S of [L, R]) { S.bt.textContent = refactored ? 'inlined' : 'Validator'; S.b.style.strokeDasharray = refactored ? '5 4' : 'none'; }
       L.res.textContent = '12 tests ✓'; L.res.style.fill = 'var(--ok)';
       R.res.textContent = refactored ? '9 of 12 tests ✗' : '12 tests ✓'; R.res.style.fill = refactored ? 'var(--bad)' : 'var(--ok)';
       R.b.style.stroke = refactored ? 'var(--bad)' : 'var(--ink)';
-      banner.textContent = refactored ? 'Validator renamed to Rules. Behaviour unchanged.' : 'Before the refactor';
+      banner.textContent = refactored ? 'Validator folded into signUp(). Same behaviour.' : 'Before the refactor';
     });
   },
 
@@ -124,7 +124,8 @@ export const scenes = {
     mk('rect', { x: 176, y: 196, width: 288, height: 44, rx: 10, fill: 'var(--amber-soft)', stroke: 'var(--amber)', 'stroke-width': 2, 'stroke-dasharray': '5 4' }, it);
     tx(320, 216, 'a few adapter tests vs the sandbox', { class: 's-mono', 'text-anchor': 'middle' }, it);
     tx(320, 232, 'slow, run in CI', { class: 's-note s-ink', 'text-anchor': 'middle' }, it);
-    const note = tx(240, 284, 'never mock Stripe itself: you would be testing your guess about it', { class: 's-red', 'text-anchor': 'middle' });
+    const note = tx(240, 284, 'never mock Stripe itself', { class: 's-cap', 'text-anchor': 'middle' });
+    note.style.fill = 'var(--bad)';
     loop((T) => {
       u.setAttribute('opacity', Math.min(1, T / 0.6));
       it.setAttribute('opacity', Math.min(1, Math.max(0, (T - 0.9) / 0.6)));
@@ -139,25 +140,28 @@ export const scenes = {
     tx(240, 24, 'One suite, two implementations', { class: 's-cap', 'text-anchor': 'middle' });
     const TESTS = ['saves and finds', 'rejects duplicates', 'ignores email case'];
     const cols = [['InMemoryUsers', 'fake', 70], ['PostgresUsers', 'real', 310]];
+    const late = k.mk('g'); // the third test only exists once production gains the new rule
     const marks = cols.map(([n, s, x]) => {
       box(k, x - 50, 44, 200, 40, s === 'fake' ? 'var(--amber-soft)' : 'var(--surface-3)');
       tx(x + 50, 62, n, { class: 's-mono', 'text-anchor': 'middle' }); tx(x + 50, 77, s, { class: 's-note s-ink', 'text-anchor': 'middle' });
       return TESTS.map((t, i) => {
-        tx(x - 44, 118 + i * 40, t, { class: 's-note s-ink' });
-        return chip(k, x + 140, 114 + i * 40, null);
+        const p = i === 2 ? late : undefined;
+        tx(x - 44, 118 + i * 40, t, { class: 's-note s-ink' }, p);
+        return chip(k, x + 140, 114 + i * 40, null, p);
       });
     });
     const verdict = tx(240, 270, '', { class: 's-cap', 'text-anchor': 'middle' });
     loop((T) => {
-      const t = k.reduced ? 7 : T % 8, drift = t > 4; // reduced motion: show the caught drift
+      const t = k.reduced ? 7.5 : T % 9, later = t > 4; // reduced motion: show the caught drift
+      late.setAttribute('opacity', t > 5 ? 1 : 0);
       marks.forEach((col, c) => col.forEach(([ci, ti], i) => {
-        const shown = (drift ? t - 4 : t) > 0.5 + i * 0.5;
-        const ok = !(drift && c === 0 && i === 2);
+        const shown = i < 2 ? t > 0.5 + i * 0.5 : t > 5.6;
+        const ok = !(i === 2 && c === 0);
         ci.style.fill = !shown ? 'var(--surface-3)' : ok ? 'var(--ok)' : 'var(--bad)';
         ti.textContent = shown ? (ok ? '✓' : '✗') : '';
       }));
-      verdict.textContent = drift ? (t > 6 ? 'the fake drifted (case-sensitive), and the suite caught it' : 'later: Postgres gets a case-insensitive unique index') : (t > 2 ? 'fake and real agree' : '');
-      verdict.style.fill = drift && t > 6 ? 'var(--bad)' : 'var(--ink)';
+      verdict.textContent = !later ? (t > 1.8 ? 'fake and real agree' : '') : t < 6.4 ? 'later: Postgres gets a case-insensitive unique index' : 'the fake drifted, and the shared suite caught it';
+      verdict.style.fill = later && t >= 6.4 ? 'var(--bad)' : 'var(--ink)';
     });
   },
 
@@ -182,38 +186,51 @@ export const scenes = {
     });
   },
 
-  /** TDD: a board driven by the step's data: the phase, the tests and their state, and the code so far. */
+  /** TDD: a board driven by the step's data: the phase, the tests and their state, and the code so far.
+   *  `board.before` (optional) is shown first, so a step can play red turning green. */
   tddBoard(k, ctx) {
     const { mk, tx, loop } = k;
     const b = ctx.step.board;
     const PH = [['red', 'RED', 'var(--bad)', 'var(--bad-soft)'], ['green', 'GREEN', 'var(--ok)', 'var(--ok-soft)'], ['refactor', 'REFACTOR', 'var(--accent)', 'var(--accent-soft)']];
-    PH.forEach(([id, n, c, f], i) => {
-      const on = b.phase === id;
-      mk('rect', { x: 96 + i * 100, y: 8, width: 90, height: 26, rx: 13, fill: on ? f : 'var(--surface-2)', stroke: on ? c : 'var(--line)', 'stroke-width': on ? 2.4 : 1.2 });
-      tx(141 + i * 100, 25, n, { class: 's-mono', 'text-anchor': 'middle', ...(on ? {} : { opacity: 0.5 }) });
-    });
     tx(14, 58, 'slugify.test.ts', { class: 's-lbl' });
-    const rows = b.tests.map(([name, state], i) => {
-      const y = 70 + i * 40;
-      box(k, 10, y, 196, 32, 'var(--surface)', { rx: 8, 'stroke-width': 1.6 });
-      tx(20, y + 20, name, { class: 's-note s-ink' });
-      return [state, chip(k, 190, y + 16, null)];
-    });
     tx(222, 58, 'slugify.ts', { class: 's-lbl' });
-    mk('rect', { x: 216, y: 66, width: 256, height: 166, rx: 10, fill: 'var(--code-bg)', stroke: 'var(--ink)', 'stroke-width': 2 });
-    code(k, 228, 88, b.code);
-    const fails = b.tests.filter(([, s]) => s === 'red').length;
-    const status = tx(240, 270, '', { class: fails ? 's-red' : 's-grn', 'text-anchor': 'middle' });
-    if (b.note) tx(240, 290, b.note, { class: 's-note s-ink', 'text-anchor': 'middle' });
-    loop((T) => {
-      rows.forEach(([state, [c, t]], i) => {
-        const run = T > 0.4 + i * 0.35;
-        const ok = state === 'green';
-        c.style.fill = run ? (ok ? 'var(--ok)' : 'var(--bad)') : 'var(--surface-3)';
-        t.textContent = run ? (ok ? '✓' : '✗') : '';
+    const draw = (f) => {
+      const g = mk('g');
+      PH.forEach(([id, n, c, fl], i) => {
+        const on = f.phase === id;
+        mk('rect', { x: 96 + i * 100, y: 8, width: 90, height: 26, rx: 13, fill: on ? fl : 'var(--surface-2)', stroke: on ? c : 'var(--line)', 'stroke-width': on ? 2.4 : 1.2 }, g);
+        tx(141 + i * 100, 25, n, { class: 's-mono', 'text-anchor': 'middle', ...(on ? {} : { opacity: 0.5 }) }, g);
       });
-      if (T > 0.6 + b.tests.length * 0.35) status.textContent = fails ? `${fails} failed, ${b.tests.length - fails} passed` : `${b.tests.length} passed`;
-      if (T > 1 + b.tests.length * 0.35) return false;
+      const rows = f.tests.map(([name, state], i) => {
+        const y = 70 + i * 40;
+        box(k, 10, y, 196, 32, 'var(--surface)', { rx: 8, 'stroke-width': 1.6 }, g);
+        tx(20, y + 20, name, { class: 's-note s-ink' }, g);
+        return [state, chip(k, 188, y + 16, null, g)];
+      });
+      const h = Math.max(70, f.code.length * 17 + 16);
+      mk('rect', { x: 216, y: 66, width: 256, height: h, rx: 10, fill: 'var(--code-bg)', stroke: 'var(--ink)', 'stroke-width': 2 }, g);
+      code(k, 228, 88, f.code, g);
+      const fails = f.tests.filter(([, s]) => s === 'red').length;
+      const statusY = Math.max(66 + h, 70 + f.tests.length * 40) + 28;
+      const status = tx(240, statusY, '', { class: fails ? 's-red' : 's-grn', 'text-anchor': 'middle' }, g);
+      if (f.note) tx(240, statusY + 20, f.note, { class: 's-note s-ink', 'text-anchor': 'middle' }, g);
+      return { g, rows, status, fails, n: f.tests.length };
+    };
+    const frames = (b.before ? [b.before, b] : [b]).map(draw);
+    const run = (F, T) => {
+      F.rows.forEach(([state, [c, t]], i) => {
+        const on = T > 0.4 + i * 0.35, ok = state === 'green';
+        c.style.fill = on ? (ok ? 'var(--ok)' : 'var(--bad)') : 'var(--surface-3)';
+        t.textContent = on ? (ok ? '✓' : '✗') : '';
+      });
+      F.status.textContent = T > 0.6 + F.n * 0.35 ? (F.fails ? `${F.fails} failed, ${F.n - F.fails} passed` : `${F.n} passed`) : '';
+    };
+    const hold = frames.length > 1 ? 1.6 + frames[0].n * 0.35 : 0; // how long the "before" board stays up
+    loop((T) => {
+      const second = frames.length > 1 && T > hold;
+      frames.forEach((F, i) => F.g.setAttribute('opacity', (i === frames.length - 1) === (second || frames.length === 1) ? 1 : 0));
+      if (second) run(frames[1], T - hold); else run(frames[0], T);
+      if (T > hold + 1 + frames[frames.length - 1].n * 0.35) return false;
     });
   },
 
