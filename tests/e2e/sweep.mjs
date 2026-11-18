@@ -3,6 +3,10 @@
 // Set EVIDENCE=<dir> to save screenshots of each lesson's first and last step.
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
+import { LESSONS } from '../../src/content/index.js';
+
+// Every step of every lesson must be swept; the count comes from the content itself.
+const TOTAL = LESSONS.reduce((n, l) => n + l.steps.length, 0);
 
 const BASE = process.env.BASE_URL || 'http://localhost:4173/';
 const EV = process.env.EVIDENCE;
@@ -91,7 +95,7 @@ for (const href of hrefs) {
   }
   if (EV) await p.screenshot({ path: `${EV}/${slug}-last.png` });
 }
-if (steps !== 123) fail(`expected 123 steps, swept ${steps}`);
+if (steps !== TOTAL) fail(`expected ${TOTAL} steps, swept ${steps}`);
 
 // 2. Search, theme, drawer, Play, definition, glossary, checks, slider, finish.
 await p.goto(BASE + '#/single-responsibility/1');
@@ -204,7 +208,7 @@ for (const href of hrefs) {
     for (const x of await ph.evaluate(layout)) if (!x.startsWith('page scrolls')) fail(`phone ${slug} step ${i}: ${x}`);
   }
 }
-if (phoneSteps !== 123) fail(`phone: expected 123 steps, swept ${phoneSteps}`);
+if (phoneSteps !== TOTAL) fail(`phone: expected ${TOTAL} steps, swept ${phoneSteps}`);
 
 await browser.close();
 console.log(`swept ${hrefs.length} lessons, ${steps} steps`);
