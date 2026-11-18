@@ -4,7 +4,7 @@ import { LESSONS } from '../../src/content/index.js';
 
 // A tiny valid format-2 lesson; each case breaks one rule and expects exactly that problem.
 const step = (o = {}) => ({ lvl: 'basics', label: 'L', title: 'T', say: 'Say.', blocks: [{ p: 'Body.' }], ...o });
-const lesson = (steps, o = {}) => ({ slug: 'x', format: 2, definition: { sentence: 'S.' }, metrics: [], learn: [], terms: { ok: ['Ok', 'fine'] }, scenes: { a() {} }, steps, ...o });
+const lesson = (steps, o = {}) => ({ slug: 'x', format: 2, definition: { sentence: 'S.' }, metrics: [], learn: [], terms: { ok: ['Ok', 'fine'] }, scenes: { a() {} }, nodes: { n: { x: 100, y: 100, label: 'N' } }, steps, ...o });
 const run = (l) => checkContent([l]);
 
 describe('content checker (format 2)', () => {
@@ -37,5 +37,8 @@ describe('content checker (format 2)', () => {
     expect(run(lesson([step()], { nodes, zones, map: { ...ok, nodes: { ...ok.nodes, b: [200, 280, 100] } } }))).toEqual(['x step 0: map node b outside 480×300']);
     expect(run(lesson([step()], { nodes, zones, map: { ...ok, zones: {} } }))).toEqual(['x step 0: map has no place for zone z']);
     expect(run(lesson([step()], { nodes, zones, map: { ...ok, zones: { z: [0, 0, 481, 300] } } }))).toEqual(['x step 0: map zone z outside 480×300']);
+  });
+  it('rejects a step with no scene in a lesson that has no node diagram', () => {
+    expect(run(lesson([step({ scene: 'a' }), step()], { nodes: undefined }))).toEqual(['x step 2: needs a scene (the lesson has no node diagram)']);
   });
 });

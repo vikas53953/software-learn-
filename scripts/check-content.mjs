@@ -13,6 +13,8 @@ function checkV2(l, s, i, err) {
   if (!s.title || !s.label || !s.say) err(l, i, 'missing title/label/say');
   if (!s.check && !s.blocks?.length) err(l, i, 'needs blocks or a check');
   if (s.scene && !l.scenes?.[s.scene]) err(l, i, `unknown scene ${s.scene}`);
+  // With no node diagram there is nothing else to draw, so every step needs a scene.
+  if (!s.scene && !Object.keys(l.nodes || {}).length) err(l, i, 'needs a scene (the lesson has no node diagram)');
   if (s.lvl === 'basics' && l.steps.slice(0, i).some((p) => p.lvl === 'intermediate')) err(l, i, 'basics step after intermediate');
   for (const t of textsOf(s)) for (const [, k] of t.matchAll(/\[\[([a-z0-9-]+)\|/g)) if (!l.terms?.[k]) err(l, i, `unknown term ${k}`);
   const c = s.check;

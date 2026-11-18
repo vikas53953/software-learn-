@@ -151,7 +151,8 @@ await p.click('.lp-opt[data-opt="1"]'); await p.click('[data-lp="check"]');
 await p.click('[data-lp="fb"]');
 await p.waitForTimeout(400);
 if (!(await p.isVisible('.lp-finish'))) fail('the last check did not lead to the finish card');
-await p.goto(BASE + '#/tdd/8');
+// The last step of the TDD lesson, whatever its length; ArrowRight on it finishes the lesson.
+await p.goto(BASE + `#/tdd/${LESSONS.find((l) => l.slug === 'tdd').steps.length}`);
 await p.waitForTimeout(300);
 await p.keyboard.press('ArrowRight');
 await p.waitForTimeout(300);
