@@ -126,7 +126,9 @@ export const scenes = {
     const result = tx(240, 284, '', { class: 's-grn', 'text-anchor': 'middle' });
     // Depths: 0 outside, 1 inside Logging, 2 inside Retry, 3 inside Cache, 4 at the network.
     const xAt = (depth) => 6 + depth * 44 + 14;
-    loop((T) => {
+    // With reduced motion the scene is drawn once; pick a moment that shows the result.
+    loop((T0) => {
+      const T = k.reduced ? 9.8 : T0;
       const cyc = 5, n = Math.floor(T / cyc) % 2, p = (T % cyc) / cyc, hit = n === 1;
       const deepest = hit ? 3 : 4;
       const goIn = seg(p, 0.05, 0.45), goOut = seg(p, 0.55, 0.9);
@@ -154,24 +156,26 @@ export const scenes = {
     box(k, 300, 70, 100, 40, 'var(--surface-2)'); tx(350, 95, 'worker', { class: 's-mono', 'text-anchor': 'middle' });
     box(k, 290, 160, 180, 40, 'var(--surface)'); tx(380, 185, 'listeners', { class: 's-mono', 'text-anchor': 'middle' });
     const got = tx(380, 222, '', { class: 's-mono', 'text-anchor': 'middle' });
-    const crash = tx(350, 52, '', { class: 's-red', 'text-anchor': 'middle' });
+    const crash = tx(380, 246, '', { class: 's-red', 'text-anchor': 'middle' });
     const verdict = tx(240, 270, '', { class: 's-note s-ink', 'text-anchor': 'middle' });
     const ev = token(56, 'var(--amber)'); ev.set('event');
-    loop((T) => {
+    // With reduced motion the scene is drawn once; pick a moment that shows the result.
+    loop((T0) => {
+      const T = k.reduced ? 11.9 : T0;
       const t = T % 12, crashed = t >= 6, u = crashed ? t - 6 : t;
       const rows = seg(u, 0.3, 0.9);
       [rowO, rowOt, rowE, rowEt].forEach((e) => e.setAttribute('opacity', rows));
       commit.textContent = u > 0.9 ? 'COMMIT: both rows or neither' : '';
       // the worker picks the row up, then publishes it
       const a = seg(u, 1.4, 2.2), b = seg(u, 2.4, 3.2), b2 = seg(u, 4.2, 5);
-      let x = lerp(160, 322, a), y = lerp(116, 90, a), o = u > 1.4 && u < 3.3 ? 1 : 0;
-      if (u >= 2.4) { x = lerp(322, 352, b); y = lerp(90, 180, b); }
-      if (crashed && u >= 4.2) { x = lerp(322, 352, b2); y = lerp(90, 180, b2); o = u < 5.1 ? 1 : 0; }
+      let x = lerp(160, 322, a), y = lerp(116, 52, a), o = u > 1.4 && u < 3.3 ? 1 : 0;
+      if (u >= 2.4) { x = lerp(322, 352, b); y = lerp(52, 140, b); }
+      if (crashed && u >= 4.2) { x = lerp(322, 352, b2); y = lerp(52, 140, b2); o = u < 5.1 ? 1 : 0; }
       ev.at(x, y, o);
       const deliveries = (u > 3.2 ? 1 : 0) + (crashed && u > 5 ? 1 : 0);
       got.textContent = deliveries ? `OrderPlaced received: ${deliveries}` : '';
       got.style.fill = deliveries > 1 ? 'var(--bad)' : 'var(--ink)';
-      crash.textContent = crashed && u > 3.3 && u < 4.2 ? '✗ crash before "mark sent"' : crashed && u >= 4.2 ? 'restart: row still unsent' : '';
+      crash.textContent = crashed && u > 3.3 && u < 4.2 ? '✗ crash before "mark sent"' : crashed && u >= 4.2 && u < 5.1 ? 'restart: row still unsent' : '';
       sent.textContent = !crashed && u > 3.6 ? 'sent ✓' : '';
       verdict.textContent = crashed && u > 5.2 ? 'at least once: listeners must handle a repeat' : !crashed && u > 3.6 ? 'nothing lost, even if the app dies after COMMIT' : '';
     });
@@ -216,7 +220,9 @@ export const scenes = {
     const label = tx(240, 30, '', { class: 's-cap', 'text-anchor': 'middle' });
     const res = tx(240, 240, '', { class: 's-mono', 'text-anchor': 'middle' });
     const req = token(48, 'var(--amber)'); req.set('GET');
-    loop((T) => {
+    // With reduced motion the scene is drawn once; pick a moment that shows the result.
+    loop((T0) => {
+      const T = k.reduced ? 5.5 : T0;
       const t = T % 12, limited = t >= 6, u = limited ? t - 6 : t;
       label.textContent = limited ? 'Over the limit: 429, auth never runs' : 'Normal request: down the stack and back';
       const deepest = limited ? 1 : 3;
@@ -256,4 +262,41 @@ export const scenes = {
       if (T > 2.2) return false;
     });
   },
+
+  /** Decorator: the same two wrappers in either order. One call fails twice, then succeeds; count the log lines. */
+  decOrder(k) {
+    const { mk, tx, loop } = k;
+    const COLS = [
+      [10, 'Logging outside Retry', ['LoggingClient', 'RetryingClient', 'FetchClient'], false],
+      [250, 'Retry outside Logging', ['RetryingClient', 'LoggingClient', 'FetchClient'], true],
+    ];
+    const TRIES = [[0.6, false], [1.4, false], [2.2, true]];
+    const cols = COLS.map(([x0, title, layers, perTry]) => {
+      tx(x0 + 110, 22, title, { class: 's-lbl', 'text-anchor': 'middle' });
+      layers.forEach((n, i) => {
+        mk('rect', { x: x0 + i * 10, y: 34 + i * 38, width: 220 - i * 20, height: 32, rx: 8, fill: n === 'LoggingClient' ? 'var(--amber-soft)' : n === 'FetchClient' ? 'var(--surface-2)' : 'var(--l1)', stroke: 'var(--ink)', 'stroke-width': 1.8 });
+        tx(x0 + 110, 55 + i * 38, n, { class: 's-mono', 'text-anchor': 'middle' });
+      });
+      const tries = TRIES.map(([, ok], i) => {
+        const g = mk('g');
+        mk('rect', { x: x0 + 4 + i * 72, y: 154, width: 66, height: 24, rx: 12, fill: ok ? 'var(--ok-soft)' : 'var(--bad-soft)', stroke: ok ? 'var(--ok)' : 'var(--bad)', 'stroke-width': 1.5 }, g);
+        tx(x0 + 37 + i * 72, 170, `try ${i + 1} ${ok ? '✓' : '✗'}`, { class: 's-mono', 'text-anchor': 'middle' }, g);
+        return g;
+      });
+      const logs = (perTry ? ['GET /prices timeout', 'GET /prices timeout', 'GET /prices 200'] : ['GET /prices 200, 3 tries']).map((t, i) => tx(x0 + 8, 204 + i * 20, t, { class: 's-mono' }));
+      const count = tx(x0 + 110, 286, '', { class: perTry ? 's-red' : 's-grn', 'text-anchor': 'middle' });
+      return { tries, logs, count, perTry };
+    });
+    mk('line', { x1: 240, y1: 10, x2: 240, y2: 292, stroke: 'var(--line)', 'stroke-width': 2, 'stroke-dasharray': '4 4' });
+    loop((T0) => {
+      const T = k.reduced ? 4 : T0 % 7;
+      cols.forEach(({ tries, logs, count, perTry }) => {
+        tries.forEach((g, i) => g.setAttribute('opacity', T > TRIES[i][0] ? 1 : 0));
+        const shown = perTry ? TRIES.filter(([at]) => T > at + 0.2).length : (T > 2.6 ? 1 : 0);
+        logs.forEach((l, i) => l.setAttribute('opacity', i < shown ? 1 : 0));
+        count.textContent = `log lines: ${shown}`;
+      });
+    });
+  },
 };
+

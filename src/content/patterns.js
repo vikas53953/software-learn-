@@ -84,7 +84,7 @@ export const observer = {
       state: { analytics: 'bad', order: 'warn' },
       metrics: { latency: '30 s timeout', blast: 'checkout fails' },
       blocks: [
-        { p: 'Customers cannot buy anything, because of a system that only **counts** purchases. Worse, the order was already saved, so when the customer retries, they may be charged twice.' },
+        { p: 'Customers cannot buy anything, because of a system that only **counts** purchases. Worse, the order was already saved, so when the customer retries, they may end up with a duplicate order.' },
         { callout: 'warn', title: 'Why it hurts', text: 'Every direct call ties checkout to that system\'s uptime and speed. Work the customer is not waiting for should not sit on the [[hot|hot path]].' },
       ],
     },
@@ -103,7 +103,7 @@ export const observer = {
       edges: [['order', 'bus', { label: 'emit' }], ['bus', 'email', { dash: true }], ['bus', 'stock', { dash: true }], ['bus', 'analytics', { dash: true }], ['bus', 'loyalty', { dash: true }]],
       flows: [['order', 'bus', { n: 2 }], ['bus', 'email', { n: 1 }], ['bus', 'stock', { n: 1, delay: 0.2 }], ['bus', 'analytics', { n: 1, delay: 0.4 }], ['bus', 'loyalty', { n: 1, delay: 0.6 }]],
       state: { bus: 'hl' },
-      metrics: { deps: '1 subject', add: 'nothing' },
+      metrics: { deps: '1 subject', add: 'nothing', latency: '—', blast: '—' },
       blocks: [
         { lang: 'ts', code: `type Listener = (e: OrderPlaced) => Promise<void>;
 
@@ -129,7 +129,7 @@ events.subscribe(e => analytics.track('order_placed', e.order));` },
     },
     {
       lvl: 'basics', label: 'Predict', title: 'Predict: is checkout safe now?', done: 2,
-      say: 'Look at emit in that code. If analytics hangs again, what happens to checkout?',
+      say: 'Think back to emit() in the previous step\'s code. If analytics hangs again, what happens to checkout?',
       check: {
         type: 'predict', q: 'Checkout now calls events.emit(), which loops over the listeners with await. Analytics hangs again. What happens?',
         opts: [{ t: 'Checkout is fine: it no longer calls analytics' }, { t: 'Checkout still hangs and fails' }, { t: 'Only the analytics listener fails' }], ans: 1,
@@ -149,7 +149,7 @@ events.subscribe(e => analytics.track('order_placed', e.order));` },
           ['Run time: checkout waits for Analytics', 'No, not with this emit()'],
           ['Failure: an Analytics error fails checkout', 'No, not with this emit()'],
         ] } },
-        { callout: 'warn', title: 'Common misunderstanding', text: 'In-process events, such as Node\'s `EventEmitter`, call listeners synchronously, in the order they subscribed. "Event" does not mean "background".' },
+        { callout: 'warn', title: 'Common misunderstanding', text: 'In-process events, such as Node\'s `EventEmitter`, call listeners synchronously, in the order they subscribed. "Event" does not mean "background". One difference from the `emit()` above: `EventEmitter` does not await async listeners, so a rejected promise becomes an unhandled rejection rather than a failed checkout.' },
       ],
     },
     {
@@ -168,14 +168,14 @@ events.subscribe(e => analytics.track('order_placed', e.order));` },
     {
       lvl: 'intermediate', label: 'Isolate', title: 'Take listeners off the hot path', scene: 'obsAsync', done: 3,
       say: 'Let emit hand the event off and return. Run listeners side by side, catch each one\'s errors, and the customer gets their answer straight away.',
-      read: { tiles: [tile('Checkout', '180 ms', 'no waiting', 'good'), tile('Listeners', 'in parallel', 'after the response'), tile('Analytics fails', 'logged', 'nothing else hit')] },
+      read: { tiles: [tile('Checkout', '180 ms', 'no waiting', 'good'), tile('Listeners', 'in parallel', 'checkout does not wait'), tile('Analytics fails', 'logged', 'nothing else hit')] },
       blocks: [
         { lang: 'ts', code: `emit(e: OrderPlaced) {
   for (const l of this.listeners) {
     // run later; one listener's error stays with it
     setImmediate(async () => {
       try { await l(e); }
-      catch (err) { log.error({ err, listener: l.name }); }
+      catch (err) { log.error({ err, event: e.type }); }
     });
   }
 }` },
@@ -306,11 +306,11 @@ export const decorator = {
     crosscutting: ['Cross-cutting concern', 'a job many parts of the code need, such as logging, retries, caching or auth, that has nothing to do with each part\'s main purpose.'],
     backoff: ['Exponential backoff', 'waiting longer before each retry (for example 200 ms, 400 ms, 800 ms) so a struggling server gets room to recover.'],
     transient: ['Transient error', 'a failure that may succeed if you simply try again, such as a timeout or a 503.'],
-    middleware: ['Middleware', 'functions a web framework runs in order around each request, each able to act before and after the next one.'],
+    middleware: ['Middleware', 'functions a web framework runs in order for each request. In Koa, each one can act before and after the rest of the chain.'],
   },
   map: {
     nodes: {
-      app: [38, 150, 64], log: [120, 150, 84], retry: [214, 150, 84], cache: [308, 150, 84], http: [420, 150, 104],
+      app: [33, 150, 50], log: [124, 150, 72], retry: [222, 150, 64], cache: [316, 150, 64], http: [424, 150, 92],
       explode: [240, 50, 340], order: [240, 250, 320],
     },
   },
@@ -337,7 +337,11 @@ export const decorator = {
 }
 
 class FetchClient implements HttpClient {
-  get(url: string) { return fetch(url); }
+  async get(url: string) {
+    const res = await fetch(url);
+    if (!res.ok) throw new HttpError(res.status); // fetch resolves on 4xx/5xx
+    return res;
+  }
 }` },
         { p: 'Product wants **logging**. The platform team wants **retries** for flaky networks. Performance wants **caching**. Not every caller wants all three.' },
         { callout: 'illus', title: 'About the numbers', text: 'Latencies in this lesson are illustrative.' },
@@ -359,7 +363,7 @@ class FetchClient implements HttpClient {
     {
       lvl: 'basics', label: 'Count', title: 'Multiply versus add', scene: 'decCount', done: 1,
       say: 'Watch the count. Each new feature doubles the subclasses, but adds just one wrapper.',
-      read: { tiles: [tile('3 features', '8 vs 4', 'subclasses vs wrappers'), tile('4 features', '16 vs 5', ''), tile('n features', '2ⁿ vs n + 1', '')] },
+      read: { tiles: [tile('3 features', '8 vs 4', 'classes: inheritance vs decorators'), tile('4 features', '16 vs 5', ''), tile('n features', '2ⁿ vs n + 1', '')] },
       blocks: [
         { p: 'With wrappers you write one class per feature, plus the real client. The combinations are built when the app starts, not written by hand.' },
       ],
@@ -442,7 +446,8 @@ const payments: HttpClient =           // never cache payments
       },
     },
     {
-      lvl: 'intermediate', label: 'Order matters', title: 'Same wrappers, different order, different behaviour', done: 3,
+      lvl: 'intermediate', label: 'Order matters', title: 'Same wrappers, different order, different behaviour', scene: 'decOrder', done: 3,
+      read: { tiles: [tile('Logging outside', '1 line', 'per call'), tile('Retry outside', '3 lines', 'one per attempt'), tile('Attempts', '3', 'same in both')] },
       say: 'Decorators are not just a pile. The order you stack them in changes what happens.',
       add: ['order'],
       flows: [],
@@ -473,18 +478,25 @@ const payments: HttpClient =           // never cache payments
     },
     {
       lvl: 'intermediate', label: 'Middleware', title: 'Decorators you already use', scene: 'decMiddleware', done: 4,
-      read: { tiles: [tile('Layers', '3 + handler', 'run in app.use() order'), tile('Over the limit', '429', 'auth never runs', 'bad'), tile('Logger', 'sees all', 'outermost layer', 'good')] },
-      say: 'Web framework middleware is the same idea arranged as a pipeline. Each layer can act before and after the next one.',
+      read: { tiles: [tile('Layers', '3 + router', 'run in app.use() order'), tile('Over the limit', '429', 'auth never runs', 'bad'), tile('Logger', 'sees all', 'outermost layer', 'good')] },
+      say: 'Koa middleware is the same idea arranged as a pipeline. Each layer awaits the rest of the chain, so it can act before and after it, like nested wrappers.',
       remove: ['order'],
       state: {},
       blocks: [
-        { lang: 'ts', code: `// Express: each app.use() wraps everything registered after it
-app.use(requestLogger);   // outermost: sees every request
-app.use(rateLimit);       // may reject before auth even runs
+        { lang: 'ts', code: `// Koa: each app.use() wraps everything registered after it
+app.use(requestLogger); // outermost: times every request
+app.use(rateLimit);     // may answer 429 before auth runs
 app.use(authenticate);
-app.get('/orders', listOrders);` },
-        { p: '[[middleware|Middleware]] in Express, Koa or ASP.NET Core, and interceptors in gRPC, all run in the order you register them. The same "order matters" rules apply.' },
-        { callout: 'tip', title: 'Not the same as @decorators', text: 'The `@log` syntax in TypeScript and Python is a language feature that wraps a class or function when it is defined. It is related, but the Decorator **pattern** wraps objects at run time and works in any language.' },
+app.use(router.routes()); // GET /orders -> listOrders
+
+async function requestLogger(ctx, next) {
+  const start = Date.now();
+  await next(); // the rest of the chain runs here
+  log.info(ctx.method, ctx.url, ctx.status, Date.now() - start);
+}` },
+        { p: '[[middleware|Middleware]] in Koa and ASP.NET Core, and interceptors in gRPC, run in the order you register them and wrap what comes after, so the "order matters" rules apply.' },
+        { callout: 'warn', title: 'Express is different', text: 'Express also runs middleware in registration order, but `next()` does not hand the response back. An Express logger sees the result by listening for `res.on(\'finish\')`.' },
+        { callout: 'tip', title: 'Not the same as @decorators', text: 'The `@log` syntax in TypeScript and Python is a language feature that wraps a class or a class member when it is defined (in Python, any function). It is related, but the Decorator **pattern** wraps objects at run time and works in any language.' },
       ],
     },
     {
