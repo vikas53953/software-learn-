@@ -39,7 +39,8 @@ export function drawMap(k, lesson, i) {
     tx(x + 10, pos === 'b' ? y + h - 8 : y + 16, Z.label, { class: 'm-zone' });
   }
   const box = (id) => mapBox(lesson, r, id);
-  const gEdges = mk('g'), gNodes = mk('g'), gLabels = mk('g'), gDots = mk('g');
+  // Edge labels sit above the moving dots so a dot never hides a label.
+  const gEdges = mk('g'), gNodes = mk('g'), gDots = mk('g'), gLabels = mk('g');
   const paths = new Map();
   const pathFor = (a, b, o = {}) => edgePath(box(a), box(b), (o.bend || 0) * 0.6);
   for (const [a, b, o = {}] of r.edges) {
@@ -71,14 +72,15 @@ export function drawMap(k, lesson, i) {
     let p = paths.get(`${a}>${b}`);
     if (!p) p = mk('path', { d: pathFor(a, b, o).d, fill: 'none', stroke: 'none' }, gEdges);
     const n = o.n || 1;
-    for (let j = 0; j < n; j++) dots.push({ p, j, n, dur: o.dur || 1.6, delay: o.delay || 0, c: mk('circle', { r: 5, cx: -20, cy: -20, fill: EDGE[o.tone] || 'var(--amber)', stroke: 'var(--ink)', 'stroke-width': 1.2 }, gDots) });
+    for (let j = 0; j < n; j++) dots.push({ p, j, n, dur: o.dur || 1.6, delay: o.delay || 0, stall: o.stall || 1, c: mk('circle', { r: 5, cx: -20, cy: -20, fill: EDGE[o.tone] || 'var(--amber)', stroke: 'var(--ink)', 'stroke-width': 1.2 }, gDots) });
   }
   if (!fades.length && !dots.length) return;
   loop((T) => {
     fades.forEach(([g, o]) => g.setAttribute('opacity', o * seg(T, 0, 0.45)));
     for (const f of dots) {
       if (T < f.delay) continue;
-      const L = f.p.getTotalLength(), q = (((T - f.delay) / f.dur + f.j / f.n) % 1) * L, pt = f.p.getPointAtLength(q);
+      // A stalled flow's dots stop part-way, like a call that never returns.
+      const L = f.p.getTotalLength(), q = Math.min(((T - f.delay) / f.dur + f.j / f.n) % 1, f.stall) * L, pt = f.p.getPointAtLength(q);
       f.c.setAttribute('cx', pt.x); f.c.setAttribute('cy', pt.y);
     }
     if (!dots.length && T > 0.5) return false;

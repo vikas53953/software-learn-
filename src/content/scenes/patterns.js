@@ -138,4 +138,122 @@ export const scenes = {
       result.textContent = p > 0.9 ? (hit ? '0.3 ms · 0 network calls' : '120 ms · 1 network call') : '';
     });
   },
+  /** Observer: the outbox. Order and event commit together; a worker publishes later. A crash before "mark sent" means a second delivery. */
+  obsOutbox(k) {
+    const { mk, tx, loop, seg, lerp, token } = k;
+    mk('rect', { x: 10, y: 40, width: 240, height: 150, rx: 12, fill: 'none', stroke: 'var(--accent)', 'stroke-width': 2, 'stroke-dasharray': '6 4' });
+    tx(20, 58, 'one transaction', { class: 's-note s-ink' });
+    box(k, 22, 70, 104, 104, 'var(--surface)'); tx(74, 90, 'orders', { class: 's-mono', 'text-anchor': 'middle' });
+    box(k, 136, 70, 104, 104, 'var(--surface)'); tx(188, 90, 'outbox', { class: 's-mono', 'text-anchor': 'middle' });
+    const rowO = mk('rect', { x: 32, y: 104, width: 84, height: 24, rx: 5, fill: 'var(--ok-soft)', stroke: 'var(--ok)', 'stroke-width': 1.5 });
+    const rowOt = tx(74, 121, 'order 42', { class: 's-mono', 'text-anchor': 'middle' });
+    const rowE = mk('rect', { x: 146, y: 104, width: 84, height: 24, rx: 5, fill: 'var(--ok-soft)', stroke: 'var(--ok)', 'stroke-width': 1.5 });
+    const rowEt = tx(188, 121, 'OrderPlaced', { class: 's-mono', 'text-anchor': 'middle' });
+    const sent = tx(188, 152, '', { class: 's-note s-ink', 'text-anchor': 'middle' });
+    const commit = tx(130, 210, '', { class: 's-grn', 'text-anchor': 'middle' });
+    box(k, 300, 70, 100, 40, 'var(--surface-2)'); tx(350, 95, 'worker', { class: 's-mono', 'text-anchor': 'middle' });
+    box(k, 290, 160, 180, 40, 'var(--surface)'); tx(380, 185, 'listeners', { class: 's-mono', 'text-anchor': 'middle' });
+    const got = tx(380, 222, '', { class: 's-mono', 'text-anchor': 'middle' });
+    const crash = tx(350, 52, '', { class: 's-red', 'text-anchor': 'middle' });
+    const verdict = tx(240, 270, '', { class: 's-note s-ink', 'text-anchor': 'middle' });
+    const ev = token(56, 'var(--amber)'); ev.set('event');
+    loop((T) => {
+      const t = T % 12, crashed = t >= 6, u = crashed ? t - 6 : t;
+      const rows = seg(u, 0.3, 0.9);
+      [rowO, rowOt, rowE, rowEt].forEach((e) => e.setAttribute('opacity', rows));
+      commit.textContent = u > 0.9 ? 'COMMIT: both rows or neither' : '';
+      // the worker picks the row up, then publishes it
+      const a = seg(u, 1.4, 2.2), b = seg(u, 2.4, 3.2), b2 = seg(u, 4.2, 5);
+      let x = lerp(160, 322, a), y = lerp(116, 90, a), o = u > 1.4 && u < 3.3 ? 1 : 0;
+      if (u >= 2.4) { x = lerp(322, 352, b); y = lerp(90, 180, b); }
+      if (crashed && u >= 4.2) { x = lerp(322, 352, b2); y = lerp(90, 180, b2); o = u < 5.1 ? 1 : 0; }
+      ev.at(x, y, o);
+      const deliveries = (u > 3.2 ? 1 : 0) + (crashed && u > 5 ? 1 : 0);
+      got.textContent = deliveries ? `OrderPlaced received: ${deliveries}` : '';
+      got.style.fill = deliveries > 1 ? 'var(--bad)' : 'var(--ink)';
+      crash.textContent = crashed && u > 3.3 && u < 4.2 ? '✗ crash before "mark sent"' : crashed && u >= 4.2 ? 'restart: row still unsent' : '';
+      sent.textContent = !crashed && u > 3.6 ? 'sent ✓' : '';
+      verdict.textContent = crashed && u > 5.2 ? 'at least once: listeners must handle a repeat' : !crashed && u > 3.6 ? 'nothing lost, even if the app dies after COMMIT' : '';
+    });
+  },
+
+  /** Observer: an idempotent listener. The same event arrives twice; the second insert conflicts and is skipped. */
+  obsIdem(k) {
+    const { tx, loop, seg, lerp, token } = k;
+    tx(240, 24, 'The same event is delivered twice', { class: 's-cap', 'text-anchor': 'middle' });
+    box(k, 170, 90, 130, 56, 'var(--surface)'); tx(235, 114, 'awardPoints()', { class: 's-mono', 'text-anchor': 'middle' }); tx(235, 132, 'listener', { class: 's-note s-ink', 'text-anchor': 'middle' });
+    box(k, 340, 70, 130, 96, 'var(--surface)'); tx(405, 90, 'handled_events', { class: 's-mono', 'text-anchor': 'middle' });
+    const row = k.mk('rect', { x: 352, y: 104, width: 106, height: 24, rx: 5, fill: 'var(--ok-soft)', stroke: 'var(--ok)', 'stroke-width': 1.5 });
+    const rowT = tx(405, 121, 'evt 7f3', { class: 's-mono', 'text-anchor': 'middle' });
+    const rowNote = tx(405, 152, '', { class: 's-note s-ink', 'text-anchor': 'middle' });
+    const pts = tx(235, 200, '', { class: 's-big', 'text-anchor': 'middle' });
+    tx(235, 222, 'loyalty points', { class: 's-note s-ink', 'text-anchor': 'middle' });
+    const verdict = tx(240, 272, '', { class: 's-grn', 'text-anchor': 'middle' });
+    const a = token(64, 'var(--amber)'); a.set('evt 7f3');
+    const b = token(64, 'var(--amber)'); b.set('evt 7f3');
+    loop((T) => {
+      const p1 = seg(T, 0.4, 1.3), p2 = seg(T, 2.6, 3.5);
+      a.at(lerp(10, 170, p1), 118, T < 1.4 ? 1 : 0);
+      b.at(lerp(10, 170, p2), 118, T > 2.4 && T < 3.6 ? 1 : 0);
+      const first = T > 1.4, second = T > 3.6;
+      row.setAttribute('opacity', first ? 1 : 0); rowT.setAttribute('opacity', first ? 1 : 0);
+      row.style.fill = second && T < 4.6 ? 'var(--warn-soft)' : 'var(--ok-soft)';
+      row.style.stroke = second && T < 4.6 ? 'var(--warn)' : 'var(--ok)';
+      rowNote.textContent = second ? 'conflict: skip' : first ? 'inserted' : '';
+      pts.textContent = first ? '+10' : '0';
+      verdict.textContent = second ? 'delivered twice, awarded once' : '';
+      if (T > 5) return false;
+    });
+  },
+
+  /** Decorator: Express middleware. A request runs down the stack and the response comes back up; rate limiting can stop it early. */
+  decMiddleware(k) {
+    const { tx, loop, seg, lerp, token } = k;
+    const L = ['requestLogger', 'rateLimit', 'authenticate', 'listOrders'];
+    L.forEach((n, i) => { box(k, 14 + i * 116, 96, 104, 60, i === 3 ? 'var(--l2)' : 'var(--surface)'); tx(66 + i * 116, 131, n, { class: 's-mono', 'text-anchor': 'middle' }); });
+    tx(20, 58, 'request →', { class: 's-note s-ink' });
+    tx(460, 206, '← response', { class: 's-note s-ink', 'text-anchor': 'end' });
+    const label = tx(240, 30, '', { class: 's-cap', 'text-anchor': 'middle' });
+    const res = tx(240, 240, '', { class: 's-mono', 'text-anchor': 'middle' });
+    const req = token(48, 'var(--amber)'); req.set('GET');
+    loop((T) => {
+      const t = T % 12, limited = t >= 6, u = limited ? t - 6 : t;
+      label.textContent = limited ? 'Over the limit: 429, auth never runs' : 'Normal request: down the stack and back';
+      const deepest = limited ? 1 : 3;
+      const go = seg(u, 0.3, 2.3), back = seg(u, 2.8, 4.8);
+      const at = (d) => 42 + d * 116;
+      if (u < 2.6) { req.set('GET'); req.at(lerp(at(0), at(deepest), go), 76, 1); }
+      else { req.set(limited ? '429' : '200'); req.at(lerp(at(deepest), at(0), back), 176, u < 5 ? 1 : 0); }
+      res.textContent = u > 4.8 ? (limited ? 'logger still logs the 429' : 'logger records the 200 and the time taken') : '';
+      res.style.fill = limited ? 'var(--bad)' : 'var(--ok)';
+    });
+  },
+
+  /** Decorator vs proxy vs adapter: what each wrapper's outside looks like compared with its inside. */
+  decCompare(k) {
+    const { tx, loop, seg } = k;
+    k.defs();
+    const ROWS = [
+      ['Decorator', 'RetryingClient', 'HttpClient', 'FetchClient', 'HttpClient', 'adds behaviour'],
+      ['Proxy', 'LazyImage', 'Image', 'RealImage', 'Image', 'controls access'],
+      ['Adapter', 'StripeAdapter', 'PaymentMethod', 'Stripe SDK', 'charges.create', 'translates'],
+    ];
+    const parts = ROWS.map(([name, outer, oi, inner, ii, job], r) => {
+      const y = 22 + r * 92, same = oi === ii, g = k.mk('g');
+      tx(14, y + 14, name, { class: 's-lbl' }, g);
+      tx(466, y + 14, job, { class: 's-note s-ink', 'text-anchor': 'end' }, g);
+      k.mk('rect', { x: 14, y: y + 24, width: 196, height: 52, rx: 10, fill: 'var(--l1)', stroke: 'var(--ink)', 'stroke-width': 2 }, g);
+      tx(112, y + 46, outer, { class: 's-mono', 'text-anchor': 'middle' }, g);
+      tx(112, y + 64, `implements ${oi}`, { class: 's-note s-ink', 'text-anchor': 'middle' }, g);
+      k.mk('path', { d: `M214,${y + 50} L252,${y + 50}`, stroke: 'var(--ink)', 'stroke-width': 2, 'marker-end': 'url(#arI)' }, g);
+      k.mk('rect', { x: 260, y: y + 24, width: 206, height: 52, rx: 10, fill: 'var(--surface-2)', stroke: same ? 'var(--ok)' : 'var(--amber)', 'stroke-width': 2 }, g);
+      tx(363, y + 46, inner, { class: 's-mono', 'text-anchor': 'middle' }, g);
+      tx(363, y + 64, same ? `same: ${ii}` : `different: ${ii}`, { class: same ? 's-grn' : 's-note s-ink', 'text-anchor': 'middle' }, g);
+      return g;
+    });
+    loop((T) => {
+      parts.forEach((g, r) => g.setAttribute('opacity', seg(T, 0.2 + r * 0.6, 0.6 + r * 0.6)));
+      if (T > 2.2) return false;
+    });
+  },
 };

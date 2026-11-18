@@ -1,5 +1,6 @@
 // Module 2: Design patterns, lesson format 2: definition, Basics + Intermediate, scenes, checks.
-// Diagram steps (add/edges/flows/state) use the node diagram; steps with `scene` use src/content/scenes/patterns.js.
+// Diagram steps (add/edges/flows/state) are drawn by src/mapscene.js at the places in each lesson's `map`;
+// steps with `scene` use src/content/scenes/patterns.js.
 import { scenes } from './scenes/patterns.js';
 
 const tile = (k, v, sub, tone) => ({ k, v, sub, tone });
@@ -39,6 +40,12 @@ export const observer = {
     outbox: ['Outbox pattern', 'saving an event to a table in the same database transaction as the change it describes, then publishing it from there in the background.'],
     idempotent: ['Idempotent', 'safe to run more than once: doing it twice has the same effect as doing it once.'],
     pubsub: ['Publish/subscribe', 'the same idea across services: publishers send messages to a broker, and subscribers receive them without knowing the publisher.'],
+  },
+  map: {
+    nodes: {
+      order: [60, 150, 100], bus: [214, 150, 112],
+      email: [400, 30, 120], stock: [400, 90, 120], analytics: [400, 150, 120], loyalty: [400, 210, 120], fraud: [400, 270, 120],
+    },
   },
   nodes: {
     order: { x: 130, y: 230, label: 'OrderService', sub: 'places orders', icon: 'card', kind: 'svc', w: 160, h: 62 },
@@ -177,7 +184,8 @@ events.subscribe(e => analytics.track('order_placed', e.order));` },
       ],
     },
     {
-      lvl: 'intermediate', label: 'Outbox', title: 'Events that must not be lost', done: 3,
+      lvl: 'intermediate', label: 'Outbox', title: 'Events that must not be lost', scene: 'obsOutbox', done: 3,
+      read: { tiles: [tile('Saved with', 'the order', 'same transaction', 'good'), tile('Delivery', 'at least once', 'never exactly once'), tile('Crash after COMMIT', 'no loss', 'worker retries', 'good')] },
       say: 'For events that must survive a crash, save the event in the same database transaction as the order. A background worker publishes it afterwards.',
       flows: [['order', 'bus', { n: 2, dur: 0.9 }], ['bus', 'email', { n: 1 }], ['bus', 'stock', { n: 1 }], ['bus', 'analytics', { n: 2, tone: 'bad', stall: 0.85 }], ['bus', 'loyalty', { n: 1 }]],
       state: { analytics: 'bad', bus: 'ok', order: 'ok' },
@@ -194,7 +202,8 @@ COMMIT;
       ],
     },
     {
-      lvl: 'intermediate', label: 'Twice', title: 'Make every listener safe to run twice', done: 3,
+      lvl: 'intermediate', label: 'Twice', title: 'Make every listener safe to run twice', scene: 'obsIdem', done: 3,
+      read: { tiles: [tile('Deliveries', '2', 'same event id'), tile('Points awarded', '+10', 'once', 'good'), tile('Guard', 'unique key', 'on event_id')] },
       say: 'If an event can arrive twice, a listener must not award loyalty points twice. Record which events you have already handled.',
       blocks: [
         { lang: 'ts', code: `async function awardPoints(e: OrderPlaced) {
@@ -298,6 +307,12 @@ export const decorator = {
     backoff: ['Exponential backoff', 'waiting longer before each retry (for example 200 ms, 400 ms, 800 ms) so a struggling server gets room to recover.'],
     transient: ['Transient error', 'a failure that may succeed if you simply try again, such as a timeout or a 503.'],
     middleware: ['Middleware', 'functions a web framework runs in order around each request, each able to act before and after the next one.'],
+  },
+  map: {
+    nodes: {
+      app: [38, 150, 64], log: [120, 150, 84], retry: [214, 150, 84], cache: [308, 150, 84], http: [420, 150, 104],
+      explode: [240, 50, 340], order: [240, 250, 320],
+    },
   },
   nodes: {
     app: { x: 80, y: 230, label: 'App', icon: 'code', kind: 'svc', w: 112 },
@@ -457,7 +472,8 @@ const payments: HttpClient =           // never cache payments
       },
     },
     {
-      lvl: 'intermediate', label: 'Middleware', title: 'Decorators you already use', done: 4,
+      lvl: 'intermediate', label: 'Middleware', title: 'Decorators you already use', scene: 'decMiddleware', done: 4,
+      read: { tiles: [tile('Layers', '3 + handler', 'run in app.use() order'), tile('Over the limit', '429', 'auth never runs', 'bad'), tile('Logger', 'sees all', 'outermost layer', 'good')] },
       say: 'Web framework middleware is the same idea arranged as a pipeline. Each layer can act before and after the next one.',
       remove: ['order'],
       state: {},
@@ -472,7 +488,8 @@ app.get('/orders', listOrders);` },
       ],
     },
     {
-      lvl: 'intermediate', label: 'Look-alikes', title: 'Decorator, proxy and adapter', done: 4,
+      lvl: 'intermediate', label: 'Look-alikes', title: 'Decorator, proxy and adapter', scene: 'decCompare', done: 4,
+      read: { tiles: [tile('Decorator', 'same', 'interface; adds behaviour'), tile('Proxy', 'same', 'interface; controls access'), tile('Adapter', 'different', 'interface; translates')] },
       say: 'Three patterns all put one object in front of another. The difference is the job each one does.',
       blocks: [
         { table: { head: ['Pattern', 'Interface', 'Job', 'Example'], rows: [
