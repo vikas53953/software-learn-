@@ -70,7 +70,7 @@ export const scenes = {
       tx(326, y + 33, out, { class: 's-mono', 'text-anchor': 'middle' }, g);
       return g;
     });
-    const n = tx(240, 278, 'Stricter levels turn a silent overwrite into an error you can retry.', { class: 's-note s-ink', 'text-anchor': 'middle' });
+    const n = tx(240, 278, 'Stricter levels fail loudly, so you can retry.', { class: 's-note s-ink', 'text-anchor': 'middle' });
     loop((T) => {
       const t = k.reduced ? 9 : T;
       rows.forEach((g, i) => g.setAttribute('opacity', clamp((t - i * 0.6) / 0.4)));

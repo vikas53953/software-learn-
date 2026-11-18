@@ -88,7 +88,7 @@ export const race = {
     },
     {
       lvl: 'basics', label: 'Predict', title: 'Predict: will the tests catch it?', scene: 'raceStress', done: 2,
-      say: 'The test suite books seat 14C a thousand times, one request after another, each time on a fresh seat.',
+      say: 'The test suite books a seat 50 times, one request after another. On launch day, 50 people try to book the same few seats at once.',
       check: {
         type: 'predict', q: 'How many double bookings does the test suite find?',
         opts: [{ t: 'None' }, { t: 'About half of them' }, { t: 'All of them' }],
@@ -133,8 +133,8 @@ COMMIT;                         -- B continues` },
       say: 'Put the condition inside the UPDATE. The database changes each row atomically, so only one request can turn holder from null into a name.',
       remove: ['lock'],
       set: { seat: { sub: 'holder: asha' } },
-      edges: [['a', 'seat', { label: '1 row updated', tone: 'ok' }], ['b', 'seat', { label: '0 rows', tone: 'warn' }]],
-      flows: [['a', 'seat', { n: 1, tone: 'ok' }], ['b', 'seat', { n: 1, tone: 'warn', delay: 0.1 }]],
+      edges: [['a', 'seat', { label: '1 row updated', tone: 'ok' }]],
+      flows: [['a', 'seat', { n: 1, tone: 'ok' }]],
       state: { a: 'ok', seat: 'ok' },
       metrics: { seat: 'asha', confirmed: '1', double: '0' },
       blocks: [
@@ -146,6 +146,8 @@ WHERE id = $2 AND holder IS NULL;
     },
     {
       lvl: 'intermediate', label: 'Predict', title: 'Predict: the second atomic update', done: 3,
+      edges: [['a', 'seat', { label: '1 row updated', tone: 'ok' }], ['b', 'seat', { label: '?', tone: 'warn' }]],
+      flows: [['a', 'seat', { n: 1, tone: 'ok' }], ['b', 'seat', { n: 1, tone: 'warn', delay: 0.1 }]],
       say: 'Asha\'s and Ben\'s conditional UPDATEs reach the database one millisecond apart. Asha\'s commits first.',
       check: {
         type: 'predict', q: 'What does Ben\'s `UPDATE … WHERE holder IS NULL` return?',
@@ -310,7 +312,7 @@ export const deadlock = {
       edges: [['t1', 'l7', { label: '1st', tone: 'ok' }], ['t1', 'l9', { label: '2nd', tone: 'ok', bend: 30 }], ['t2', 'l7', { tone: 'warn', dash: true, bend: 30 }]],
       flows: [['t1', 'l7', { n: 1, tone: 'ok' }], ['t1', 'l9', { n: 1, tone: 'ok', delay: 0.3, bend: 30 }], ['t2', 'l7', { n: 1, tone: 'warn', stall: 0.7, bend: 30 }]],
       state: { t1: 'ok', t2: 'warn' },
-      metrics: { t1: 'done', t2: 'runs next', done: '2' },
+      metrics: { t1: 'done', t2: 'runs next', done: '1' },
       blocks: [
         { lang: 'ts', code: `const [first, second] =
   from.id < to.id ? [from, to] : [to, from];
@@ -332,7 +334,7 @@ await second.lock.acquire();` },
     {
       lvl: 'intermediate', label: 'Detect', title: 'Databases detect the loop and abort one side', scene: 'dlDetect', done: 4,
       say: 'When you cannot control the order, let the database break the loop. PostgreSQL notices the cycle, aborts one transaction with a deadlock error, and the other one finishes.',
-      read: { tiles: [tile('Detection', 'after 1 s', 'deadlock_timeout default'), tile('Error', '40P01', 'deadlock detected', 'bad'), tile('Your job', 'retry', 'the whole transaction', 'good')] },
+      read: { tiles: [tile('Detection', 'after 1 s', 'Postgres default'), tile('Error', '40P01', 'deadlock detected', 'bad'), tile('Your job', 'retry', 'the whole transaction', 'ok')] },
       blocks: [
         { p: 'MySQL\'s InnoDB does the same, by default straight away. In both, the aborted transaction is rolled back, so retrying it from the start is safe.' },
       ],
@@ -353,7 +355,7 @@ await second.lock.acquire();` },
     await sleep(base / 2 + Math.random() * base / 2);
   }
 }` },
-        { callout: 'warn', title: 'Livelock', text: 'Without random jitter, both sides back off and retry in step, forever. That is a [[livelock|livelock]]: nobody is blocked, and nobody makes progress.' },
+        { callout: 'warn', title: 'Livelock', text: 'Without random jitter, both sides can back off and retry in step, colliding again and again. That is a [[livelock|livelock]]: nobody is blocked, and nobody makes progress.' },
       ],
     },
     {
@@ -444,8 +446,8 @@ export const eventLoop = {
     },
     {
       lvl: 'basics', label: 'Sync first', title: 'Synchronous code runs to the end', scene: 'elState', done: 1,
-      say: 'The whole script is one task. console.log A runs, then D. Nothing interrupts running JavaScript; the other two lines only schedule callbacks for later.',
-      ev: { stack: ['script'], out: 'A D', prev: '', hl: 'stack' },
+      say: 'The whole script is one task and runs top to bottom without interruption. console.log A prints first; the next two lines only schedule callbacks for later.',
+      ev: { stack: ['script'], out: 'A', prev: '', hl: 'stack' },
       blocks: [
         { p: 'Code that is running is never interrupted by another callback. An `async` function only pauses at `await`; between awaits it runs like any other code.' },
       ],
@@ -453,15 +455,15 @@ export const eventLoop = {
     {
       lvl: 'basics', label: 'setTimeout', title: 'A timer hands its callback to the task queue', scene: 'elState', done: 1,
       say: 'setTimeout gives B to a timer outside your code. When the timer fires, B joins the task queue and waits its turn. Zero milliseconds means "as soon as possible", not "now".',
-      ev: { stack: ['script'], apis: ['timer'], macro: ['B'], out: 'A D', prev: 'A D', hl: 'macro' },
+      ev: { stack: ['script'], apis: ['timer'], macro: ['B'], out: 'A', prev: 'A', hl: 'macro' },
       blocks: [
-        { p: 'Each turn of the loop takes one [[task|task]] from the task queue. Browsers also clamp nested timers to at least 4 ms, so 0 is never truly 0.' },
+        { p: 'Each turn of the loop takes one [[task|task]] from the task queue. A delay of 0 is a minimum, not a promise: Node.js treats 0 as 1 ms, and browsers raise it to at least 4 ms once timers are nested more than five levels deep.' },
       ],
     },
     {
       lvl: 'basics', label: 'Promise', title: 'A resolved promise queues a microtask', scene: 'elState', done: 1,
-      say: 'The promise is already resolved, so C goes straight into the microtask queue, which has priority over the task queue. Then the script ends and the stack is empty.',
-      ev: { stack: [], micro: ['C'], macro: ['B'], out: 'A D', prev: 'A D', hl: 'micro' },
+      say: 'The promise is already resolved, so C goes straight into the microtask queue, which has priority over the task queue. Then D prints, the script ends and the stack is empty.',
+      ev: { stack: [], micro: ['C'], macro: ['B'], out: 'A D', prev: 'A', hl: 'micro' },
       blocks: [
         { p: 'Promise callbacks, `await` continuations and `queueMicrotask` are all [[micro|microtasks]].' },
       ],
@@ -499,9 +501,10 @@ export const eventLoop = {
     {
       lvl: 'intermediate', label: 'Blocking', title: 'One CPU-heavy request stalls every other request', scene: 'elBlock', done: 3,
       say: 'A Node.js server hashes a 50 MB upload synchronously, which takes two seconds. The stack never empties, so every other request, even a health check, waits.',
-      read: { tiles: [tile('Slow request', '2 s', 'expected'), tile('Quick requests', '+400 to +1,800 ms', 'waiting in line', 'bad'), tile('CPU cores used', '1', 'of 8')] },
+      read: { tiles: [tile('Slow request', '2 s', 'expected'), tile('Quick requests', '+0.4 to 1.8 s', 'waiting in line', 'bad'), tile('CPU cores used', '1', 'of 8')] },
       blocks: [
         { p: 'Waiting for I/O is cheap because it happens outside the thread. CPU work is not: it holds the only thread the loop has.' },
+        { callout: 'illus', title: 'About the numbers', text: 'Timings in this lesson are illustrative: a real 50 MB hash is much faster, but the same thing happens with any long CPU job.' },
         { callout: 'tip', title: 'Measure it', text: 'Track event-loop lag (for example with `perf_hooks.monitorEventLoopDelay()` in Node.js). Rising lag is often the first sign of a blocking call.' },
       ],
     },
@@ -512,7 +515,7 @@ export const eventLoop = {
         type: 'predict', q: 'The function becomes `async function hash(buf) { /* same loop */ }`, called with `await`. Do other requests still wait?',
         opts: [{ t: 'No, async makes it run in the background' }, { t: 'Yes, just as long' }, { t: 'Only half as long' }],
         fb: ['`async` only changes the return value into a promise. The loop inside still runs on the main thread.', '', 'Nothing splits the work. It runs in one go, the same as before.'],
-        ans: 1, why: 'An async function runs synchronously until its first `await` on something not yet done. A CPU loop has no such await, so it still holds the thread for two seconds.',
+        ans: 1, why: 'An async function runs synchronously until its first `await`. The CPU loop has no await inside it, so it still holds the thread for two seconds. (Awaiting an already-settled value would only yield to microtasks, never to other requests.)',
       },
     },
     {
