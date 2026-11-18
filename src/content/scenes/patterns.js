@@ -283,7 +283,7 @@ export const scenes = {
         tx(x0 + 37 + i * 72, 170, `try ${i + 1} ${ok ? '✓' : '✗'}`, { class: 's-mono', 'text-anchor': 'middle' }, g);
         return g;
       });
-      const logs = (perTry ? ['GET /prices timeout', 'GET /prices timeout', 'GET /prices 200'] : ['GET /prices 200, 3 tries']).map((t, i) => tx(x0 + 8, 204 + i * 20, t, { class: 's-mono' }));
+      const logs = (perTry ? ['GET /prices timeout', 'GET /prices timeout', 'GET /prices 200'] : ['GET /prices 200']).map((t, i) => tx(x0 + 8, 204 + i * 20, t, { class: 's-mono' }));
       const count = tx(x0 + 110, 286, '', { class: perTry ? 's-red' : 's-grn', 'text-anchor': 'middle' });
       return { tries, logs, count, perTry };
     });
