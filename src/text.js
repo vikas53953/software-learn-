@@ -11,4 +11,4 @@ export const md = (s) =>
   esc(s)
     .replace(/`([^`]+)`/g, '<code>$1</code>')
     .replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
-    .replace(/\[\[([a-z0-9-]+)\|([^\]]+)\]\]/g, '<button type="button" class="term-btn" data-term="$1">$2</button>');
+    .replace(/\[\[([a-z0-9-]+)\|([^[\]]+)\]\]/g, '<button type="button" class="term-btn" data-term="$1">$2</button>');

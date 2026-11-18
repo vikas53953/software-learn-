@@ -107,10 +107,13 @@ describe('properties: text safety', () => {
     fc.assert(fc.property(key, label, markupy, (k, w, noise) => {
       const out = md(`${noise}[[${k}|${w}]]`);
       for (const m of out.matchAll(/data-term="([^"]*)"/g)) expect(m[1]).toMatch(/^[a-z0-9-]+$/);
-      if (!w.includes(']')) expect(out).toContain(`data-term="${k}">${esc(w)}</button>`);
+      if (!/[[\]]/.test(w)) expect(out).toContain(`data-term="${k}">${esc(w)}</button>`);
       // every attribute value md emits is quoted and holds no raw quote, angle bracket or ampersand
       expect(out.replace(/data-term="[a-z0-9-]+"|type="button"|class="term-btn"/g, '')).not.toMatch(/="/);
     }), opts);
+  });
+  it('md: an unclosed [[ before a glossary term does not swallow it (deep-profile counterexample)', () => {
+    expect(md('[[-|[[a|a]]')).toBe('[[-|<button type="button" class="term-btn" data-term="a">a</button>');
   });
   it('md does not turn keys with other characters into buttons', () => {
     const bad = fc.string({ unit: fc.constantFrom('A', ' ', '"', '<', '_', '.'), minLength: 1, maxLength: 6 });
