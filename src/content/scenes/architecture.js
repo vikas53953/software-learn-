@@ -14,7 +14,7 @@ const arrow = (k, d, color = 'var(--ink)', extra = {}) => k.mk('path', { d, fill
 // Hexagonal: a codebase where the payment SDK is imported all over. [folder, files, indexes that import the SDK]
 const FILES = [
   ['routes/', ['checkout.ts', 'refunds.ts', 'account.ts', 'search.ts', 'health.ts'], [0, 1]],
-  ['services/', ['OrderService.ts', 'RefundSvc.ts', 'CartService.ts', 'emails.ts', 'stock.ts'], [0, 1, 3]],
+  ['services/', ['OrderSvc.ts', 'RefundSvc.ts', 'CartSvc.ts', 'emails.ts', 'stock.ts'], [0, 1, 3]],
   ['pricing/', ['discounts.ts', 'tax.ts', 'money.ts', 'coupons.ts', 'shipping.ts'], [0, 1, 2]],
   ['db/', ['orders.ts', 'payments.ts', 'users.ts', 'products.ts', 'migrate.ts'], [0, 1]],
 ];
@@ -23,7 +23,7 @@ export const scenes = {
   /** Hexagonal: which files change when the payment SDK changes (predict, then reveal). */
   hexRipple(k, ctx) {
     const { mk, tx, loop } = k;
-    tx(14, 22, 'Files that import the payment SDK', { class: 's-lbl' });
+    tx(14, 22, 'The shop\'s codebase', { class: 's-lbl' });
     const hits = [];
     FILES.forEach(([dir, files, bad], c) => {
       const x = 14 + c * 116;
@@ -40,7 +40,7 @@ export const scenes = {
       const n = k.reduced ? hits.length : Math.min(hits.length, Math.floor(T * 4));
       hits.forEach((r, i) => { r.style.fill = i < n ? 'var(--bad-soft)' : 'var(--surface-2)'; r.style.stroke = i < n ? 'var(--bad)' : 'var(--line-strong)'; });
       if (n >= hits.length) {
-        cap.textContent = 'Pricing rules change because a vendor did.';
+        cap.textContent = 'Red files import the SDK. Pricing changes too.';
         note.textContent = `${hits.length} files in 4 folders (illustrative)`;
         return false;
       }
@@ -62,7 +62,7 @@ export const scenes = {
     const dot = mk('circle', { cx: 62, cy: 90, r: 5, fill: 'var(--accent)' });
 
     tx(14, 128, 'In source code, imports point in', { class: 's-lbl' });
-    const B = [[10, 'REST controller', 'imports PlaceOrder', 'var(--surface-2)'], [180, 'core', 'imports nothing', 'var(--ok-soft)'], [350, 'PayCoPayments', 'imports Payments', 'var(--surface-2)']];
+    const B = [[10, 'REST controller', '→ PlaceOrder', 'var(--surface-2)'], [180, 'core', 'imports none', 'var(--ok-soft)'], [350, 'PayCoPayments', '→ Payments', 'var(--surface-2)']];
     B.forEach(([x, t, s, f]) => {
       box(k, x, 146, 120, 54, f, { 'stroke-width': 1.8 });
       tx(x + 60, 168, t, { class: 's-mono', 'text-anchor': 'middle' });
@@ -99,7 +99,7 @@ export const scenes = {
     });
     const maps = [arrow(k, 'M151,106 L169,106'), arrow(k, 'M311,106 L329,106')];
     const good = chip(k, 10, 190, 220, 'core never sees HTTP or SQL', 'var(--ok-soft)', undefined, 's-note s-ink');
-    const cost = chip(k, 250, 190, 220, 'cost: more types, more mapping', 'var(--amber-soft)', undefined, 's-note s-ink');
+    const cost = chip(k, 250, 190, 220, 'cost: extra types + mapping', 'var(--amber-soft)', undefined, 's-note s-ink');
     const cap = tx(240, 262, 'Every edge translates. The core only sees Order.', { class: 's-cap', 'text-anchor': 'middle' });
     loop((T) => {
       const t = k.reduced ? 9 : T;
@@ -134,7 +134,7 @@ export const scenes = {
       const failed = t > 2.6;
       rows[0].g.firstChild.style.fill = failed ? 'var(--bad-soft)' : 'var(--surface-2)';
       rows[4].g.firstChild.style.fill = failed ? 'var(--amber-soft)' : 'var(--surface-2)';
-      st.textContent = failed ? 'blocked: catalog test red' : 'collecting…';
+      st.textContent = failed ? 'blocked: Catalog red' : 'collecting…';
       st.setAttribute('class', failed ? 's-red' : 's-note s-ink');
       cap.textContent = failed ? 'One failing test holds every team\'s change.' : '';
       sub.textContent = t > 3.6 ? 'The VAT fix is due today. It waits anyway.' : '';
@@ -191,7 +191,7 @@ export const scenes = {
     const ROWS = [
       ['success', '200 OK', 'charged', 'ok', 1],
       ['declined', '402', 'refused', 'warn', 1],
-      ['slow', '200 after 9 s', 'charged', 'warn', 3],
+      ['slow', '200 after 2 s', 'charged', 'warn', 3],
       ['timeout', '? no answer', 'charged', 'bad', 0],
     ];
     const C = { ok: 'var(--ok)', warn: 'var(--amber)', bad: 'var(--bad)' };
@@ -225,7 +225,7 @@ export const scenes = {
     const { mk, tx, loop } = k;
     k.defs();
     box(k, 10, 34, 200, 156, 'var(--surface)');
-    tx(22, 56, 'Orders DB: one transaction', { class: 's-note s-ink' });
+    tx(22, 56, 'one DB transaction', { class: 's-note s-ink' });
     const r1 = chip(k, 24, 76, 172, 'INSERT orders row', 'var(--surface-2)');
     const r2 = chip(k, 24, 124, 172, 'INSERT outbox row', 'var(--surface-2)');
     const commit = tx(110, 178, '', { class: 's-grn', 'text-anchor': 'middle' });
@@ -252,7 +252,7 @@ export const scenes = {
       dot.setAttribute('cx', P[i][0] + (P[i + 1][0] - P[i][0]) * f);
       dot.setAttribute('cy', P[i][1] + (P[i + 1][1] - P[i][1]) * f);
       dot.setAttribute('opacity', t > 1.4 && t < 4.2 ? 1 : 0);
-      done.textContent = t >= 4 ? 'OrderPlaced → charge' : '';
+      done.textContent = t >= 4 ? 'event → charge' : '';
       cap.setAttribute('opacity', clamp((t - 0.8) / 0.4));
       sub.setAttribute('opacity', clamp((t - 4.2) / 0.4));
     });

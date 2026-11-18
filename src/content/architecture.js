@@ -67,7 +67,7 @@ export const hexagonal = {
       edges: [['rest', 'core'], ['core', 'pg'], ['core', 'payA']],
       flows: [['rest', 'core', { n: 2 }], ['core', 'pg', { n: 1 }], ['core', 'payA', { n: 1, delay: 0.4 }]],
       state: { core: 'bad' },
-      metrics: { imports: '14', test: 'needs DB + sandbox', swap: 'weeks' },
+      metrics: { imports: '10 files', test: 'needs DB + sandbox', swap: 'weeks' },
       blocks: [
         { lang: 'ts', code: `import { Request } from 'express';
 import { prisma } from '../db';
@@ -75,8 +75,8 @@ import { PayCo } from 'payco-sdk';
 
 export async function placeOrder(req: Request) {
   const items = req.body.items;
-  const total = items.reduce((s, i) => s + i.price * i.qty, 0);
-  if (total > 500) req.body.discount = 0.05;   // business rule
+  const subtotal = items.reduce((s, i) => s + i.price * i.qty, 0);
+  const total = subtotal > 500 ? subtotal * 0.95 : subtotal;   // business rule
   const charge = await PayCo.charges.create({ amount: total });
   return prisma.order.create({ data: { items, chargeId: charge.id } });
 }` },
@@ -86,7 +86,7 @@ export async function placeOrder(req: Request) {
     },
     {
       lvl: 'basics', label: 'Predict', title: 'Predict: the vendor changes its SDK', scene: 'hexRipple', done: 1,
-      say: 'PayCo ships version 3 of its SDK and renames its charge types. Code all over the shop imports those types today.',
+      say: 'PayCo ships version 3 of its SDK and renames its charge types.',
       check: {
         type: 'predict', q: 'Which files have to change?',
         opts: [{ t: 'One file: the payment code' }, { t: 'A few files, all in one folder' }, { t: 'Files in every folder, including pricing rules' }],
@@ -105,7 +105,7 @@ export async function placeOrder(req: Request) {
       blocks: [
         { lang: 'ts', code: `// core/order.ts: no imports from frameworks or vendors
 export class Order {
-  constructor(readonly lines: Line[]) {}
+  constructor(readonly id: OrderId, readonly lines: Line[]) {}
   total(): Money { return sum(this.lines.map((l) => l.price.times(l.qty))); }
   discount(): Money { return this.total().gt(500) ? this.total().times(0.05) : Money.zero; }
 }` },
@@ -134,11 +134,11 @@ export interface Payments { charge(o: Order, amount: Money): Promise<ChargeRef>;
       edges: [['rest', 'inPort'], ['queue', 'inPort'], ['inPort', 'core'], ['core', 'ordersPort'], ['core', 'payPort'], ['pg', 'ordersPort', { dash: true, tone: 'ok' }], ['payA', 'payPort', { dash: true, tone: 'ok' }]],
       flows: [['rest', 'inPort', { n: 1 }], ['queue', 'inPort', { n: 1, delay: 0.5 }], ['core', 'payPort', { n: 1, delay: 0.8 }]],
       state: { rest: 'ok', queue: 'ok', pg: 'ok', payA: 'ok' },
-      metrics: { imports: '0', swap: 'one file' },
+      metrics: { imports: '0', swap: 'one adapter' },
       blocks: [
         { lang: 'ts', code: `// adapters/paycoPayments.ts: the one place PayCo appears
 import { PayCo } from 'payco-sdk';
-import type { Payments } from '../core/ports';
+import type { Order, Money, Payments } from '../core/ports';
 
 export class PayCoPayments implements Payments {
   async charge(o: Order, amount: Money) {
@@ -193,12 +193,11 @@ export class PayCoPayments implements Payments {
     },
     {
       lvl: 'intermediate', label: 'Predict', title: 'Predict: switching to a new provider', done: 3,
-      say: 'The business signs with a cheaper provider, PayNow. The core, its ports and its tests stay as they are.',
-      add: ['payB'],
+      say: 'The business signs with a cheaper provider, PayNow. Its SDK looks nothing like PayCo\'s.',
       edges: [['rest', 'inPort'], ['queue', 'inPort'], ['tests', 'inPort', { tone: 'muted' }], ['inPort', 'core'], ['core', 'ordersPort'], ['core', 'payPort'],
-        ['pg', 'ordersPort', { dash: true, tone: 'ok' }], ['mem', 'ordersPort', { dash: true, tone: 'muted' }], ['payA', 'payPort', { dash: true, tone: 'muted' }], ['payB', 'payPort', { dash: true, tone: 'ok' }]],
+        ['pg', 'ordersPort', { dash: true, tone: 'ok' }], ['mem', 'ordersPort', { dash: true, tone: 'muted' }], ['payA', 'payPort', { dash: true, tone: 'ok' }]],
       flows: [['core', 'payPort', { n: 2 }]],
-      state: { payB: 'hl', payA: '', tests: '', mem: '' },
+      state: { payPort: 'hl', payA: '', tests: '', mem: '' },
       check: {
         type: 'predict', q: 'What has to change to go live with PayNow?',
         opts: [{ t: 'The core and the Payments port' }, { t: 'A new adapter, plus one line where adapters are wired up' }, { t: 'Every caller of `charge`' }],
@@ -209,12 +208,13 @@ export class PayCoPayments implements Payments {
     {
       lvl: 'intermediate', label: 'Wiring', title: 'One place plugs it all together', done: 3,
       say: 'Somebody has to choose which adapter goes into which port. That happens once, at start-up, in the composition root.',
+      add: ['payB'],
       remove: ['tests', 'mem'],
       edges: [['rest', 'inPort'], ['queue', 'inPort'], ['inPort', 'core'], ['core', 'ordersPort'], ['core', 'payPort'],
         ['pg', 'ordersPort', { dash: true, tone: 'ok' }], ['payA', 'payPort', { dash: true, tone: 'muted' }], ['payB', 'payPort', { dash: true, tone: 'ok' }]],
       flows: [],
-      state: { payB: 'ok', payA: '', pg: 'ok' },
-      metrics: { swap: 'days' },
+      state: { payB: 'hl', payA: '', pg: 'ok', payPort: '' },
+      metrics: { swap: 'one adapter' },
       blocks: [
         { lang: 'ts', code: `// main.ts: the composition root
 const orders = new PostgresOrders(pool);
@@ -224,7 +224,7 @@ const payments = config.provider === 'paynow'
 const placeOrder = new PlaceOrderService(orders, payments);
 startHttp(placeOrder);
 startConsumer(placeOrder);` },
-        { p: 'The [[root|composition root]] is the only file that knows every concrete class. Because the choice is a config value, you can switch providers gradually, or back again, without a new build of the core.' },
+        { p: 'The [[root|composition root]] is the only file that knows every concrete class. Because the choice is a config value, you can switch providers, or switch back, with a config change and a restart. The core is not touched.' },
       ],
     },
     {
@@ -254,7 +254,7 @@ startConsumer(placeOrder);` },
       say: 'Rules in the core, interfaces owned by the core, and adapters at the edge that you can test around and swap.',
       edges: [['rest', 'inPort'], ['queue', 'inPort'], ['inPort', 'core'], ['core', 'ordersPort'], ['core', 'payPort'], ['pg', 'ordersPort', { dash: true, tone: 'ok' }], ['payB', 'payPort', { dash: true, tone: 'ok' }]],
       state: {},
-      metrics: { imports: '0', test: '~1 s, no infra', swap: 'days' },
+      metrics: { imports: '0', test: '~1 s, no infra', swap: 'one adapter' },
       blocks: [
         { ul: [
           '**Core:** business rules with no framework, database or vendor imports.',
@@ -296,7 +296,7 @@ export const services = {
   ],
   scenes,
   terms: {
-    strangler: ['Strangler fig', 'replace a system piece by piece: route one feature at a time to new code until the old code can be deleted. Named by Martin Fowler after a vine that grows around a tree.'],
+    strangler: ['Strangler fig', 'replace a system piece by piece: route one feature at a time to new code until the old code can be deleted. Named by Martin Fowler after the strangler fig, which grows around a host tree.'],
     idempotent: ['Idempotent', 'doing it twice has the same effect as doing it once.'],
     outbox: ['Transactional outbox', 'write an event to an outbox table in the same database transaction as the change; a separate relay publishes it afterwards.'],
   },
@@ -304,7 +304,7 @@ export const services = {
     nodes: {
       client: [44, 150, 76], router: [132, 150, 84],
       catalog: [262, 40, 116], accounts: [262, 113, 116], orders: [262, 186, 116], payments: [262, 260, 116],
-      db: [418, 72, 108], paydb: [418, 160, 108], paysvc: [418, 248, 108],
+      db: [418, 186, 108], paydb: [418, 260, 108], paysvc: [262, 260, 116],
     },
   },
   nodes: {
@@ -381,23 +381,15 @@ export const services = {
     },
     {
       lvl: 'basics', label: 'Extracted', title: 'Payments has its own deploy and its own data', done: 3,
-      say: 'Payments now runs as its own service with its own database. It deploys daily, on its own schedule. Orders reaches it over HTTP.',
+      say: 'Payments now runs as its own service with its own database. It deploys daily, on its own schedule. Orders reaches it over HTTP, and the router sends /payments/* straight to it.',
       add: ['paysvc', 'paydb'],
       remove: ['payments'],
-      edges: [['client', 'router'], ['router', 'orders'], ['router', 'paysvc', { bend: 50, label: '/payments/*', tone: 'accent' }], ['orders', 'paysvc', { tone: 'warn' }], ['orders', 'db'], ['paysvc', 'paydb']],
-      flows: [['router', 'paysvc', { bend: 50, n: 1 }], ['orders', 'paysvc', { n: 2, tone: 'warn' }], ['paysvc', 'paydb', { n: 1 }]],
+      edges: [['client', 'router'], ['router', 'orders'], ['router', 'paysvc', { bend: 30, tone: 'accent' }], ['orders', 'paysvc', { tone: 'warn' }], ['orders', 'db'], ['paysvc', 'paydb']],
+      flows: [['router', 'paysvc', { bend: 30, n: 1 }], ['orders', 'paysvc', { n: 2, tone: 'warn' }], ['paysvc', 'paydb', { n: 1 }]],
       state: { paysvc: 'ok' },
       metrics: { deploys: '2', release: 'daily, on its own', hops: '1' },
       blocks: [
         { p: 'Moving the data is usually the hardest part: copy it, keep both copies in sync while callers move, then cut over. Until Payments owns its data alone, the two are still coupled through the database.' },
-      ],
-    },
-    {
-      lvl: 'intermediate', label: 'Network', title: 'A function call became a network call', scene: 'svcOutcomes', done: 3,
-      say: 'A function call returns or throws. A network call can also be slow, or never answer. In the worst case, Payments charged the card and the reply was lost.',
-      read: { tiles: [tile('Outcomes', '4', 'not 2'), tile('Timeout', 'unknown', 'charged or not?', 'bad'), tile('Shared transaction', 'gone', '', 'bad')] },
-      blocks: [
-        { p: 'Every remote call now needs a timeout, a decision about retries, and often a circuit breaker so a struggling service is not hammered further.' },
       ],
     },
     {
@@ -414,6 +406,14 @@ export const services = {
       },
     },
     {
+      lvl: 'intermediate', label: 'Network', title: 'A function call became a network call', scene: 'svcOutcomes', done: 3,
+      say: 'A function call returns or throws. A network call can also be slow, or never answer. In the worst case, Payments charged the card and the reply was lost: that is the timeout you just predicted.',
+      read: { tiles: [tile('Outcomes', '4', 'not 2'), tile('Timeout', 'unknown', 'charged or not?', 'bad'), tile('Shared transaction', 'gone', '', 'bad')] },
+      blocks: [
+        { p: 'Every remote call now needs a timeout, a decision about retries, and often a circuit breaker so a struggling service is not hammered further.' },
+      ],
+    },
+    {
       lvl: 'intermediate', label: 'Idempotency', title: 'Make the retry safe with an idempotency key', done: 4,
       say: 'Orders sends a unique key with the charge and reuses it on every retry. Payments stores the key with the result, and a repeat returns the stored result instead of charging again.',
       edges: [['client', 'router'], ['router', 'orders'], ['orders', 'paysvc', { tone: 'ok' }], ['orders', 'db'], ['paysvc', 'paydb']],
@@ -426,7 +426,7 @@ Idempotency-Key: order-8812-charge
 
 # retry after a timeout: same key, same body
 # 200 OK  { "chargeId": "ch_51", "replayed": true }` },
-        { p: 'Now "retry until you get an answer" is safe, because the operation is [[idempotent|idempotent]]. Many payment APIs accept a header like this, and there is an IETF draft that standardises it.' },
+        { p: 'Now "retry until you get an answer" is safe, because the operation is [[idempotent|idempotent]]. Many payment APIs accept a header like this, and there is an IETF draft that standardises it. The same key with a different body should be rejected, and retries still need backoff and a limit.' },
       ],
     },
     {
@@ -441,7 +441,7 @@ Idempotency-Key: order-8812-charge
     {
       lvl: 'intermediate', label: 'The tax', title: 'What every new service costs', done: 4,
       say: 'Each service needs its own pipeline, dashboards, alerts, on-call and versioned API. Debugging one order now means following it across processes.',
-      edges: [['client', 'router'], ['router', 'orders'], ['router', 'paysvc', { bend: 50, tone: 'accent' }], ['orders', 'paysvc', { tone: 'ok' }], ['orders', 'db'], ['paysvc', 'paydb']],
+      edges: [['client', 'router'], ['router', 'orders'], ['router', 'paysvc', { bend: 30, tone: 'accent' }], ['orders', 'paysvc', { tone: 'ok' }], ['orders', 'db'], ['paysvc', 'paydb']],
       flows: [['router', 'orders', { n: 1 }], ['orders', 'paysvc', { n: 1, delay: 0.4 }], ['paysvc', 'paydb', { n: 1, delay: 0.8 }]],
       state: {},
       read: { tiles: [tile('Tracing', 'needed', 'one ID across calls'), tile('Pipelines', '2', 'and growing'), tile('On-call', 'per service')] },
@@ -466,7 +466,7 @@ Idempotency-Key: order-8812-charge
     {
       lvl: 'intermediate', label: 'Recap', title: 'Recap: split for independence, not fashion', done: 4,
       say: 'Start with a modular monolith. Split when teams, deploys, scaling or isolation demand it, move one route at a time, and pay the network tax on purpose.',
-      edges: [['client', 'router'], ['router', 'orders'], ['router', 'paysvc', { bend: 50, tone: 'accent' }], ['orders', 'paysvc', { tone: 'ok' }], ['orders', 'db'], ['paysvc', 'paydb']],
+      edges: [['client', 'router'], ['router', 'orders'], ['router', 'paysvc', { bend: 30, tone: 'accent' }], ['orders', 'paysvc', { tone: 'ok' }], ['orders', 'db'], ['paysvc', 'paydb']],
       flows: [],
       state: {},
       metrics: { deploys: '2', release: 'daily, on its own', hops: '1' },
