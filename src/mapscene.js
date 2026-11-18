@@ -6,7 +6,7 @@ import { resolveStep, edgePath } from './diagram.js';
 
 const H = 34, HS = 44, LINE = 14;
 const KIND = {
-  iface: ['var(--violet-soft)', 'var(--violet)'], note: ['var(--surface-2)', 'var(--line-strong)'],
+  iface: ['var(--violet-soft)', 'var(--violet)'], 'env-blue': ['color-mix(in srgb, #3b82f6 12%, var(--surface))', '#3b82f6'], 'env-green': ['var(--ok-soft)', 'var(--ok)'], note: ['var(--surface-2)', 'var(--line-strong)'],
   test: ['var(--accent-soft)', 'var(--accent)'], store: ['var(--surface-3)', 'var(--ink)'],
   double: ['var(--amber-soft)', 'var(--ink)'],
 };

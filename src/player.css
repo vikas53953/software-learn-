@@ -180,7 +180,7 @@
 .lp-scene .s-note { font: 400 10.5px var(--mono); fill: var(--muted); }
 .lp-scene .s-ink { fill: var(--ink); }
 .lp-scene .s-white { fill: #fff; }
-.lp-scene .s-mono { font: 600 11.5px var(--mono); fill: var(--ink); }
+.lp-scene .s-mono { font: 600 12px var(--mono); fill: var(--ink); }
 .lp-scene .s-monob { font: 700 13px var(--mono); fill: var(--ink); }
 .lp-scene .s-red { font: 700 11.5px var(--mono); fill: var(--bad); }
 .lp-scene .s-grn { font: 700 11.5px var(--mono); fill: var(--ok); }

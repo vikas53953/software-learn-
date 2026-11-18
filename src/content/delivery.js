@@ -43,8 +43,8 @@ export const ci = {
   map: {
     nodes: {
       dev: [48, 50, 84], pr: [165, 50, 100], build: [285, 50, 84], test: [410, 50, 100],
-      scan: [410, 150, 110], art: [280, 150, 100], stage: [150, 150, 96], gate: [46, 150, 80],
-      prod: [150, 250, 112], manual: [330, 250, 150],
+      scan: [410, 150, 126], art: [280, 150, 100], stage: [150, 150, 96], gate: [46, 250, 80],
+      prod: [176, 250, 112], manual: [340, 250, 150],
     },
   },
   nodes: {
@@ -70,7 +70,7 @@ export const ci = {
       metrics: { freq: 'every 2 wks', lead: '≈ 10 days', cfr: '≈ 30%', mttr: 'hours' },
       blocks: [
         { p: 'Big batches mean big risk. When a release with 80 changes breaks, there are 80 suspects, and rolling back undoes all of them.' },
-        { p: 'The four numbers on the right are the [[dora|DORA metrics]]. Elite teams deploy on demand, with lead times under a day and quick recovery. (DORA now calls the fourth one "failed deployment recovery time".)' },
+        { p: 'The four numbers below are the [[dora|DORA metrics]]. Elite teams deploy on demand, with lead times under a day and quick recovery. (DORA now calls the fourth one "failed deployment recovery time", and recent reports add a fifth, rework rate.)' },
         { callout: 'illus', title: 'About the numbers', text: 'Metric values in this lesson are illustrative.' },
       ],
     },
@@ -84,8 +84,8 @@ export const ci = {
       ],
     },
     {
-      lvl: 'basics', label: 'Integrate', title: 'Every push is built and tested by a machine', done: 1,
-      say: 'Open a pull request and a clean machine checks out the code, installs dependencies from the lockfile, and runs lint and tests. Nobody\'s laptop is involved.',
+      lvl: 'basics', label: 'Integrate', title: 'Every change is built and tested by a machine', done: 1,
+      say: 'Open a pull request, or merge to main, and a clean machine checks out the code, installs dependencies from the lockfile, and runs lint, tests and the build. Nobody\'s laptop is involved.',
       remove: ['manual', 'prod'],
       add: ['pr', 'build', 'test'],
       edges: [['dev', 'pr'], ['pr', 'build'], ['build', 'test']],
@@ -94,17 +94,22 @@ export const ci = {
       metrics: { lead: '≈ 5 days' },
       blocks: [
         { lang: 'yaml', code: `# .github/workflows/ci.yml
-on: [pull_request]
+on:
+  pull_request:
+  push:
+    branches: [main]
 jobs:
   verify:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20, cache: npm }
-      - run: npm ci          # exact versions from the lockfile
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22, cache: npm }
+      # npm ci installs exact lockfile versions
+      - run: npm ci
       - run: npm run lint
-      - run: npm test` },
+      - run: npm test
+      - run: npm run build` },
         { p: 'The pipeline is a file in the repository, so changes to it are reviewed and versioned like any other code.' },
       ],
     },
@@ -150,6 +155,7 @@ jobs:
       state: { scan: 'hl' },
       blocks: [
         { ul: ['[[sca|SCA]] compares your dependency versions with published CVEs.', '[[sast|SAST]] reads your own code for patterns such as SQL built from user input.', '**Secret scanning** looks for things shaped like API keys, tokens and private keys.'] },
+        { p: 'A key that reached the repository is already leaked, even if the next commit deletes it: it lives on in the history and in every clone. Revoke and rotate it first, then clean up.' },
         { callout: 'warn', title: 'Gate on what is actionable', text: 'Fail the build on new critical findings and track the rest. A check that fails on everything gets switched off.' },
         { p: 'Finding a vulnerable library in a pull request is far cheaper than finding it in a penetration test or an incident. This is often called "shifting left".' },
       ],
@@ -176,9 +182,11 @@ jobs:
       state: { art: 'hl' },
       metrics: { freq: 'daily', lead: '< 1 day', cfr: '≈ 10%' },
       blocks: [
-        { lang: 'bash', code: `docker build -t registry.example.com/shop:$GIT_SHA .
-docker push registry.example.com/shop:$GIT_SHA
-# staging, then production, deploy this image by its digest` },
+        { lang: 'bash', code: `IMAGE=reg.example.com/shop:$GIT_SHA
+docker build -t $IMAGE .
+docker push $IMAGE
+# staging, then production, deploy
+# this image by its digest` },
         { p: 'The [[artifact|artifact]] is identified by its content digest (`sha256:…`), so "the thing we tested" and "the thing we shipped" can be proven identical. Signing it and publishing an SBOM records who built it and what is inside.' },
       ],
     },
@@ -187,7 +195,7 @@ docker push registry.example.com/shop:$GIT_SHA
       say: 'Build the same commit twice and you can get two different images: a base image tag moved, or a dependency range resolved to a newer version. Promote one digest instead.',
       read: { tiles: [tile('Per-env builds', '2 digests', 'one never tested', 'bad'), tile('Build once', '1 digest', 'staging = production', 'good'), tile('Differs per env', 'config only', 'URLs, secrets, sizes')] },
       blocks: [
-        { p: 'Tags such as `node:20` are moving labels: the image behind them changes when a new patch ships. A digest never changes. Pin base images by digest in the Dockerfile, and deploy by digest too.' },
+        { p: 'Tags such as `node:22` are moving labels: the image behind them changes when a new patch ships. A digest never changes. Pin base images by digest in the Dockerfile, and deploy by digest too.' },
       ],
     },
     {
@@ -296,6 +304,7 @@ export const deploys = {
       metrics: { share: '—', err: '100%', down: '≈ 4 min', rollback: 'redeploy' },
       blocks: [
         { p: 'If v1.5 turns out to be broken, rolling back means doing the whole thing again in reverse, with more downtime.' },
+        { p: 'Recreate is still the right call for batch workers, development environments, or a schema change two versions cannot share. Kubernetes offers it as `strategy.type: Recreate`.' },
         { callout: 'illus', title: 'About the numbers', text: 'Metric values in this lesson are illustrative.' },
       ],
     },
@@ -304,12 +313,12 @@ export const deploys = {
       say: 'Replace two instances at a time. Each new one must pass its health check before the next two are replaced, so the service never goes dark.',
       read: { tiles: [tile('Downtime', '0', 'always some instances up', 'good'), tile('Versions live', '2', 'during the rollout'), tile('Rollback', 'another rollout', 'minutes, not seconds')] },
       blocks: [
-        { p: 'This is the default for a Kubernetes Deployment (`strategy: RollingUpdate`, with `maxUnavailable` and `maxSurge` both 25% unless you change them). A new pod only gets traffic once its [[health|health check]] passes.' },
+        { p: 'This is the default for a Kubernetes Deployment (`strategy.type: RollingUpdate`, with `maxUnavailable` and `maxSurge` both 25% unless you change them). A new pod only gets traffic once its [[health|health check]] (its readiness probe, if you define one) passes.' },
         { callout: 'key', title: 'The catch', text: 'For a while, v1.4 and v1.5 both serve traffic against the same database. They must both work with whatever schema is there.' },
       ],
     },
     {
-      lvl: 'basics', label: 'Predict', title: 'Predict: a rename during a rollout', done: 1,
+      lvl: 'basics', label: 'Predict', title: 'Predict: a rename during a rollout', scene: 'depRename', done: 1,
       say: 'v1.5\'s migration renames the column price to price_cents, and runs as the rollout starts.',
       set: { blue: { label: 'Pool · v1.4 → v1.5', sub: '4 of 10 updated' } },
       edges: [['users', 'lb'], ['lb', 'blue']],
@@ -330,7 +339,7 @@ export const deploys = {
       set: { blue: { label: 'Blue · v1.4', sub: 'live' }, green: { label: 'Green · v1.5', sub: 'idle, tested' } },
       edges: [['users', 'lb'], ['lb', 'blue'], ['lb', 'green', { dash: true, tone: 'muted' }]],
       flows: [['users', 'lb', { n: 3 }], ['lb', 'blue', { n: 3 }]],
-      state: { green: 'hl' },
+      state: {},
       metrics: { share: '0%', err: '0.1%', down: '0', rollback: 'seconds' },
       blocks: [
         { p: 'When green looks right, change the load balancer so every new request goes to green. If something is wrong, change it back: blue is still running, untouched.' },
@@ -358,21 +367,29 @@ export const deploys = {
           { t: 'Hot-fix the bug and deploy v1.5.1 to green', hint: 'That might take an hour, with errors the whole time. Is there a faster way back?' },
           { t: 'Restart the green servers', hint: 'A restart runs the same broken code again.' },
         ],
-        ans: 0, why: 'Blue is still running v1.4, so rolling back is the same one-line routing change as the release. Fix the bug afterwards, calmly.',
+        ans: 0, why: 'Blue is still running v1.4, so rolling back is the same one-line routing change as the release. Fix the bug afterwards, calmly. One catch: orders written while green was live must still be readable by blue, which is why the schema rule matters here too.',
       },
     },
     {
       lvl: 'intermediate', label: 'Expand, contract', title: 'Change the schema in three deploys', scene: 'depExpand', done: 3,
-      say: 'To rename a column safely, add the new one first, move the data while new code writes both, and drop the old one only after no running version reads it.',
-      read: { tiles: [tile('Deploys', '3', 'small and reversible'), tile('Broken requests', '0', 'at every step', 'good'), tile('Old column', 'dropped last', 'after v1.4 is gone')] },
+      say: 'To rename a column safely, add the new one first, move the data while new code writes both, switch reads to the new one, and drop the old one only when no running version reads or writes it.',
+      read: { tiles: [tile('Deploys', '3', 'each one small'), tile('Broken requests', '0', 'at every step', 'good'), tile('Old column', 'dropped last', 'the one step with no undo', 'bad')] },
       blocks: [
-        { lang: 'sql', code: `-- deploy 1: expand
-ALTER TABLE products ADD COLUMN price_cents integer;
--- deploy 2: code writes both columns; backfill in batches
-UPDATE products SET price_cents = round(price * 100) WHERE price_cents IS NULL;
--- deploy 3: contract, once nothing reads price
-ALTER TABLE products DROP COLUMN price;` },
-        { p: 'This is [[expand|expand and contract]] (also called parallel change). Each step is backward compatible, so you can still roll back the code at any point.' },
+        { lang: 'sql', code: `-- 1. expand
+ALTER TABLE products
+  ADD COLUMN price_cents integer;
+
+-- 2. v1.5 writes both; backfill in batches
+UPDATE products
+  SET price_cents = round(price * 100)
+  WHERE price_cents IS NULL
+    AND id BETWEEN $1 AND $2;
+
+-- 3. contract: v1.6 no longer reads
+--    or writes price
+ALTER TABLE products
+  DROP COLUMN price;` },
+        { p: 'This is [[expand|expand and contract]] (also called parallel change). Until the final drop, every step is backward compatible, so the code can still be rolled back. The drop is the one step you cannot undo without a restore, so it comes last, on its own.' },
         { callout: 'tip', title: 'Big tables', text: 'Backfill in batches (for example, a few thousand rows per query) so one huge UPDATE does not lock the table or flood replication.' },
       ],
     },
@@ -405,8 +422,8 @@ spec:
     },
     {
       lvl: 'intermediate', label: 'Analysis', title: 'Let the numbers decide', scene: 'depCanary', done: 3,
-      say: 'The analysis compares the canary with the baseline every minute. At minute nine the canary\'s error rate passes the 1% limit, and the rollout aborts by itself.',
-      read: { tiles: [tile('Baseline v1.4', '0.1%', 'errors'), tile('Canary v1.5', '1.6%', 'at minute 9', 'bad'), tile('Users affected', '5%', 'for 9 minutes')] },
+      say: 'Every minute the analysis checks the canary\'s error rate against a limit set in advance; the baseline is drawn for reference. At minute nine the canary passes 1%, and the rollout aborts by itself.',
+      read: { tiles: [tile('Baseline v1.4', '0.1%', 'errors'), tile('Canary v1.5', '1.6%', 'at the abort', 'bad'), tile('Users exposed', '5%', 'errors from minute 9')] },
       blocks: [
         { p: 'Decide the limits before the rollout: error rate, p99 latency, maybe a business metric such as checkouts per minute. A human staring at dashboards is slower and less consistent than a rule.' },
         { callout: 'warn', title: 'Small canaries need time', text: 'At 5% of a quiet service, a few minutes may hold only a handful of requests. Wait for enough traffic before trusting the comparison.' },
@@ -422,21 +439,23 @@ spec:
       metrics: { share: '0%', err: '0.1%', rollback: 'automatic' },
       blocks: [
         { p: 'Total impact: 5% of users for a few minutes, instead of everyone until someone notices.' },
+        { p: 'Next: reproduce the failure, fix it, and start a new canary with the fixed version. Nobody had to roll back by hand.' },
       ],
     },
     {
       lvl: 'intermediate', label: 'Feature flags', title: 'Deploy dark, release with a flag', done: 4,
       say: 'Ship the new checkout to production switched off. Turn it on for staff, then 1% of customers, then everyone, without another deploy.',
       add: ['flags'],
-      set: { blue: { label: 'All servers · v1.6', sub: 'new checkout inside' }, green: { label: 'Staff', sub: 'flag on' }, flags: { sub: 'checkout: staff' } },
-      edges: [['users', 'lb'], ['lb', 'blue'], ['flags', 'lb', { dash: true, tone: 'accent', label: 'per request' }], ['lb', 'green', { tone: 'ok', label: 'staff only' }]],
-      flows: [['users', 'lb', { n: 3 }], ['lb', 'blue', { n: 3 }], ['lb', 'green', { n: 1, tone: 'ok' }]],
-      state: { flags: 'hl', green: 'ok' },
-      metrics: { share: 'staff only', err: '0.1%', down: '0', rollback: 'flip the flag' },
+      set: { blue: { label: 'All servers · v1.6', sub: 'customers: old checkout' }, green: { label: 'New checkout', sub: 'v1.6 code, staff only', kind: 'note' }, flags: { sub: 'checkout: staff' } },
+      edges: [['users', 'lb'], ['lb', 'blue'], ['flags', 'blue', { dash: true, tone: 'accent', label: 'per user' }], ['blue', 'green', { dash: true, tone: 'ok' }]],
+      flows: [['users', 'lb', { n: 3 }], ['lb', 'blue', { n: 3 }], ['blue', 'green', { n: 1, tone: 'ok' }]],
+      state: { flags: 'hl' },
+      metrics: { share: '—', err: '0.1%', down: '0', rollback: 'flip the flag' },
       blocks: [
-        { lang: 'ts', code: `if (flags.isEnabled('new-checkout', { userId: user.id })) {
-  return newCheckout(cart);
-}
+        { lang: 'ts', code: `// inside the app, on every request
+const on = flags.isEnabled('new-checkout',
+  { userId: user.id });
+if (on) return newCheckout(cart);
 return oldCheckout(cart);` },
         { p: 'A [[flag|feature flag]] separates deploying (a technical event) from releasing (a business decision). Turning the feature off takes seconds and needs no deploy.' },
         { callout: 'warn', title: 'Flags are debt', text: 'Each flag doubles the paths to test. Give every flag an owner and a removal date, and delete it once the feature is fully on.' },
