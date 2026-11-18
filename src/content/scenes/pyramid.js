@@ -341,10 +341,11 @@ export const scenes = {
 
   shapes(k) {
     const { mk, tx } = k;
-    [['var(--l0)', 'static checks', 18], ['var(--l1)', 'unit / detail', 128], ['var(--l2)', 'integration', 244], ['var(--l3)', 'E2E / integrated', 354]].forEach(([f, t, x]) => {
-      mk('rect', { x, y: 18, width: 12, height: 12, rx: 3, fill: f, stroke: 'var(--ink)', 'stroke-width': 1.5 }); tx(x + 18, 28, t, { class: 's-note s-ink' });
+    // Legend in two rows so the longer labels fit at phone sizes.
+    [['var(--l0)', 'static checks', 60, 14], ['var(--l1)', 'unit / detail', 270, 14], ['var(--l2)', 'integration', 60, 36], ['var(--l3)', 'E2E / integrated', 270, 36]].forEach(([f, t, x, y]) => {
+      mk('rect', { x, y, width: 12, height: 12, rx: 3, fill: f, stroke: 'var(--ink)', 'stroke-width': 1.5 }); tx(x + 18, y + 10, t, { class: 's-note s-ink' });
     });
-    tx(240, 52, 'width = share of tests in each layer', { class: 's-note', 'text-anchor': 'middle' });
+    tx(240, 74, 'width = share of tests in each layer', { class: 's-note', 'text-anchor': 'middle' });
     mk('line', { x1: 10, x2: 470, y1: 255, y2: 255, stroke: 'var(--ink)', 'stroke-width': 2 });
     const col = (cx, name, parts) => {
       let y = 252;
