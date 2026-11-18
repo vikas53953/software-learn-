@@ -71,3 +71,9 @@ The sweep passed through all of it. It checked phones on one lesson only and loo
 - Format-2 lessons give their node diagrams a compact `map`; the phone sees roughly 10 px labels.
 - Feedback, glossary popups and finish-card terms go through `md()`.
 - A step that teaches something new changes the stage: a new scene or at least its own state.
+
+## 10. Commands in lessons are run, not recalled (2026-11-18)
+
+**What happened.** Fix-forward 1 on #4 added `git log -L :price:src/OrderService.ts` to the SRP lesson. The verifier ran it: git has no TypeScript function finder, so it fails on an indented method. The grid also said "+1 file, no edits" while step 7 says the startup file gains a line.
+
+**Rule.** Every command or code sample added to a lesson is run once by the author before the push (the regex range form `-L '/price(/,/^  }/:file'` was checked in a scratch repo). Numbers repeated across steps are checked against each other.

@@ -48,9 +48,9 @@ export function drawMap(k, lesson, i) {
     paths.set(`${a}>${b}`, p);
     if (o.label) {
       const g = mk('g', { class: 'map-elbl' }, gLabels);
-      const w = o.label.length * 5.9 + 10;
-      mk('rect', { x: mid.x - w / 2, y: mid.y - 8, width: w, height: 16, rx: 8, fill: 'var(--surface)', stroke: EDGE[tone], 'stroke-width': 1 }, g);
-      tx(mid.x, mid.y + 3.5, o.label, { class: 'm-elbl', 'text-anchor': 'middle' }, g);
+      const w = o.label.length * 6.8 + 12;
+      mk('rect', { x: mid.x - w / 2, y: mid.y - 9, width: w, height: 18, rx: 9, fill: 'var(--surface)', stroke: EDGE[tone], 'stroke-width': 1 }, g);
+      tx(mid.x, mid.y + 4, o.label, { class: 'm-elbl', 'text-anchor': 'middle' }, g);
     }
   }
   const fades = [];

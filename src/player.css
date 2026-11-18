@@ -233,6 +233,6 @@
 @media (prefers-reduced-motion: reduce) { .lp *, .lp *::before, .lp *::after { animation: none !important; transition: none !important; } }
 /* Compact node maps (src/mapscene.js): sized so a phone shows labels at about 10px. */
 .lp-scene .m-lbl { font: 700 12.5px var(--display); fill: var(--ink); }
-.lp-scene .m-sub { font: 500 10px var(--mono); fill: var(--muted); }
-.lp-scene .m-elbl { font: 600 9.5px var(--mono); fill: var(--ink); }
-.lp-scene .m-zone { font: 700 10px var(--mono); letter-spacing: .04em; fill: var(--muted); }
+.lp-scene .m-sub { font: 500 11px var(--mono); fill: var(--muted); }
+.lp-scene .m-elbl { font: 600 11px var(--mono); fill: var(--ink); }
+.lp-scene .m-zone { font: 700 11px var(--mono); letter-spacing: .04em; fill: var(--muted); }

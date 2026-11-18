@@ -260,7 +260,7 @@ export const scenes = {
           paint(c, shown && fresh, addType ? typeGood : !typeGood);
         }));
         G.rows[2].setAttribute('opacity', addType ? 1 : 0); G.audit.setAttribute('opacity', addType ? 0 : 1);
-        G.cap.textContent = addType ? (typeGood ? '+1 new file' : '3 switches edited') : (typeGood ? '2 classes edited' : '+1 new function');
+        G.cap.textContent = addType ? (typeGood ? '+1 file, 1 register line' : '3 switches edited') : (typeGood ? 'interface + 2 classes' : '+1 new function');
         G.cap.style.fill = (addType ? typeGood : !typeGood) ? 'var(--ok)' : 'var(--bad)';
       }
       phase.textContent = addType ? 'New payment type: Wallet' : 'New operation: audit';

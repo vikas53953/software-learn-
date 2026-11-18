@@ -189,7 +189,7 @@ export const srp = {
       read: { term: [['cmd', 'git log --since="6 months ago" --format=%an -- src/OrderService.ts | sort | uniq -c | sort -rn'], ['dim', '  41 Priya'], ['dim', '  33 Tom'], ['dim', '  19 Ana'], ['dim', '  17 Sam']] },
       blocks: [
         { p: 'Two questions find the seams in a big class:' },
-        { ol: ['**Who changes it?** Count commit authors per file, then map each author to their team (Priya is in Finance, Tom in Marketing, and so on). Four teams on one file means four reasons to change.', '**What changes together?** Look at which files are edited in the same commits; `git log -L :price:src/OrderService.ts` narrows it to one function. Code that always moves together belongs together.'] },
+        { ol: ['**Who changes it?** Count commit authors per file, then map each author to their team (Priya is in Finance, Tom in Marketing, and so on). Four teams on one file means four reasons to change.', '**What changes together?** Look at which files are edited in the same commits. To follow one method, give git a line range by pattern: `git log -L \'/price(/,/^  }/:src/OrderService.ts\'`. Code that always moves together belongs together.'] },
         { lang: 'bash', code: `# who changes this file? (authors, most frequent first)
 git log --since="6 months ago" --format=%an -- src/OrderService.ts \\
   | sort | uniq -c | sort -rn
@@ -202,6 +202,7 @@ git log --since="6 months ago" --format= --name-only --full-diff -- src/OrderSer
     },
     {
       lvl: 'intermediate', label: 'Split safely', title: 'Refactor without breaking checkout', done: 3,
+      set: { god: { label: 'OrderService', sub: 'facade' } },
       edges: [['req', 'god'], ['god', 'val'], ['god', 'price'], ['god', 'repo'], ['god', 'mail'], ['repo', 'db'], ['mail', 'smtp']],
       flows: [['req', 'god', { n: 2 }], ['god', 'price', { n: 1, tone: 'ok' }]],
       state: { price: 'ok', god: 'hl', val: 'dim', repo: 'dim', mail: 'dim', fin: 'dim', mkt: 'dim', dba: 'dim', sec: 'dim' },
@@ -223,6 +224,7 @@ git log --since="6 months ago" --format= --name-only --full-diff -- src/OrderSer
     },
     {
       lvl: 'intermediate', label: 'Don\'t over-split', title: 'Cohesion: keep together what changes together', done: 4,
+      set: { god: { label: 'CheckoutFlow', sub: '40 lines' } },
       say: 'Single responsibility is not one method per class. If two things always change together, splitting them just scatters one idea across files.',
       edges: [['req', 'god'], ['god', 'val'], ['god', 'price'], ['god', 'repo'], ['god', 'mail'], ['repo', 'db'], ['mail', 'smtp']],
       flows: [],
@@ -463,7 +465,7 @@ const methods = new Map<string, PaymentMethod>([
     },
     {
       lvl: 'intermediate', label: 'Closed unions', title: 'When a switch is the better choice', scene: 'ocpGrid', done: 4,
-      read: { tiles: [tile('New type', 'classes', '+1 file, no edits', 'good'), tile('New operation', 'union', '+1 function, no edits', 'good'), tile('Pick by', 'what grows', 'types or operations')] },
+      read: { tiles: [tile('New type', 'classes', '+1 class, 1 register line', 'good'), tile('New operation', 'union', '+1 function, no edits', 'good'), tile('Pick by', 'what grows', 'types or operations')] },
       say: 'Classes make new types easy to add. But if the types are fixed and you keep adding operations, a closed union with a compiler check is often simpler.',
       blocks: [
         { p: 'Here is the trade-off, sometimes called the expression problem:' },

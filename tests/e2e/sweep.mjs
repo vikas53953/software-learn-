@@ -159,6 +159,21 @@ await p.click('.lp-finish a.go');
 await p.waitForTimeout(300);
 if (!(await p.evaluate(() => location.hash)).startsWith('#/ci-pipeline/1')) fail('the finish card did not open the next lesson');
 
+// 2a. Lesson-specific wording stays in its lesson, and feedback renders markdown (verifier survivors on #4).
+{
+  const srp = LESSONS.find((l) => l.slug === 'single-responsibility'), mi = srp.steps.findIndex((s) => s.check?.type === 'match');
+  const mc = srp.steps[mi].check;
+  await p.goto(BASE + `#/single-responsibility/${mi + 1}`); await p.waitForTimeout(300);
+  for (const [k, b] of mc.bugs.entries()) await p.click(`.bug[data-bug="${k}"] .lp-bin[data-bin="${(b.a + 1) % mc.bins.length}"]`);
+  await p.click('[data-lp="check"]'); await p.waitForTimeout(200);
+  if (/smallest thing that has to run/.test(await p.textContent('.lp-fb p'))) fail('a pyramid-only hint shows on the SRP match check');
+  const lsp = LESSONS.find((l) => l.slug === 'liskov-substitution'), ci = lsp.steps.findIndex((s) => s.check && /`/.test(s.check.why));
+  await p.goto(BASE + `#/liskov-substitution/${ci + 1}`); await p.waitForTimeout(300);
+  await p.click(`.lp-opt[data-opt="${lsp.steps[ci].check.ans}"]`); await p.click('[data-lp="check"]'); await p.waitForTimeout(200);
+  const fbp = await p.$eval('.lp-fb p', (e) => [e.textContent, e.querySelectorAll('code').length]);
+  if (fbp[0].includes('`') || !fbp[1]) fail(`feedback shows raw markdown: "${fbp[0].slice(0, 80)}"`);
+}
+
 // 2b. Play with Voice on keeps going whether speech ends early, late or never (a browser with no voices never ends it).
 for (const mode of ['ends', 'never']) {
   const v = await page({ width: 1440, height: 900 });
