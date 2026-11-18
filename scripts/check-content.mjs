@@ -59,6 +59,20 @@ for (const l of lessons) {
   });
   const lastDone = Math.max(...l.steps.map((s) => s.done || 0));
   if (lastDone !== l.learn.length) err(l, l.steps.length - 1, `final ticks ${lastDone} != learn ${l.learn.length}`);
+  if (l.map) {
+    // Compact phone-readable layout (src/mapscene.js): every node and zone needs a place inside 480×300.
+    for (const id of nodes) {
+      const m = l.map.nodes?.[id];
+      if (!m) { err(l, -1, `map has no place for node ${id}`); continue; }
+      const [x, y, w] = m, h = 34 + (l.nodes[id].sub || Object.values(l.steps).some((s) => s.set?.[id]?.sub) ? 10 : 0) + 14 * (String(l.nodes[id].label).split('\n').length - 1);
+      if (x - w / 2 < 0 || x + w / 2 > 480 || y - h / 2 < 0 || y + h / 2 > 300) err(l, -1, `map node ${id} outside 480×300`);
+    }
+    for (const id of zones) {
+      const z = l.map.zones?.[id];
+      if (!z) err(l, -1, `map has no place for zone ${id}`);
+      else if (z[0] < 0 || z[1] < 0 || z[0] + z[2] > 480 || z[1] + z[3] > 300) err(l, -1, `map zone ${id} outside 480×300`);
+    }
+  }
   for (const [id, n] of Object.entries(l.nodes || {})) {
     const w = n.w || 148, h = n.h || 56;
     if (n.x - w / 2 < 0 || n.x + w / 2 > 800 || n.y - h / 2 < 0 || n.y + h / 2 > 460) err(l, -1, `node ${id} outside canvas`);

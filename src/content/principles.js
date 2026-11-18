@@ -1,5 +1,6 @@
 // Module 1: Design principles (SOLID), lesson format 2: definition, Basics + Intermediate, scenes, checks.
-// Diagram steps (add/edges/flows/state) use the node diagram; steps with `scene` use src/content/scenes/principles.js.
+// Diagram steps (add/edges/flows/state) are drawn by src/mapscene.js at the places in each lesson's `map`;
+// steps with `scene` use src/content/scenes/principles.js.
 import { scenes } from './scenes/principles.js';
 
 const tile = (k, v, sub, tone) => ({ k, v, sub, tone });
@@ -35,10 +36,17 @@ export const srp = {
   terms: {
     actor: ['Actor', 'a person or team who asks for changes to the code, such as Finance or the security team.'],
     cohesion: ['Cohesion', 'how closely the parts of a module belong together. High cohesion: everything in it changes for the same reason.'],
-    coupling: ['Coupling', 'how much one module depends on another. Low coupling means you can change one without touching the other.'],
     conflict: ['Merge conflict', 'when two branches edit the same lines and git cannot combine them automatically, so a person has to.'],
     characterization: ['Characterization test', 'a test that records what the code does today, right or wrong, so you notice if a refactor changes it.'],
     facade: ['Facade', 'a thin class that keeps an old entry point working while it hands the real work to new, smaller classes.'],
+  },
+  map: {
+    nodes: {
+      fin: [62, 26, 112], mkt: [180, 26, 112], dba: [298, 26, 112], sec: [416, 26, 112],
+      req: [48, 165, 84], god: [148, 165, 104],
+      val: [290, 90, 124], price: [290, 140, 124], repo: [290, 190, 124], mail: [290, 240, 124],
+      db: [420, 190, 96], smtp: [420, 240, 96],
+    },
   },
   nodes: {
     req: { x: 95, y: 230, label: 'Checkout', sub: 'HTTP request', icon: 'user', kind: 'actor', w: 136 },
@@ -94,7 +102,7 @@ export const srp = {
     {
       lvl: 'basics', label: 'Collisions', title: 'Watch the pull requests collide', scene: 'srpBlob', done: 1,
       say: 'Every team commits to the same file. When two changes land close together on the same lines, git cannot merge them by itself.',
-      read: { tiles: [tile('Teams', '4', 'one file'), tile('Files', '1', 'OrderService.ts'), tile('Conflicts', '~6/wk', 'illustrative')] },
+      read: { tiles: [tile('Teams', '4', 'one file'), tile('Files', '1', 'OrderService.ts'), tile('Conflicts', '~5/wk', 'illustrative')] },
       blocks: [
         { p: 'Each amber dot is a commit from one team. They all head for `OrderService.ts`.' },
         { ul: ['When two pull requests edit nearby lines, you get a [[conflict|merge conflict]] that someone has to untangle by hand.', 'A typo in Marketing\'s email template can make Finance\'s pricing tests fail, because they share a file and a test run.', 'Every review needs someone who understands tax, SQL, HTML and security at once.'] },
@@ -115,7 +123,7 @@ export const srp = {
       lvl: 'basics', label: 'Split by actor', title: 'Give each reason its own home', done: 2,
       say: 'Pull each responsibility into its own class, owned by one team. A small CheckoutFlow keeps just the order of the steps.',
       add: ['val', 'price', 'repo', 'mail'],
-      set: { god: { label: 'CheckoutFlow', sub: '40 lines' }, fin: { sub: 'owns PriceCalculator' }, mkt: { sub: 'owns ReceiptMailer' }, dba: { sub: 'owns OrderRepository' }, sec: { sub: 'owns OrderValidator' } },
+      set: { god: { label: 'CheckoutFlow', sub: '40 lines' }, fin: { sub: 'owns pricing' }, mkt: { sub: 'owns receipts' }, dba: { sub: 'owns storage' }, sec: { sub: 'owns validation' } },
       edges: [['req', 'god'], ['god', 'val'], ['god', 'price'], ['god', 'repo'], ['god', 'mail'], ['repo', 'db'], ['mail', 'smtp']],
       flows: [['req', 'god', { n: 2 }], ['god', 'val', { n: 1 }], ['god', 'price', { n: 1, delay: 0.25 }], ['god', 'repo', { n: 1, delay: 0.5 }], ['god', 'mail', { n: 1, delay: 0.75 }]],
       state: { val: 'ok', price: 'ok', repo: 'ok', mail: 'ok' },
@@ -176,12 +184,12 @@ export const srp = {
       },
     },
     {
-      lvl: 'intermediate', label: 'Find seams', title: 'Let the history show you the seams', done: 3,
+      lvl: 'intermediate', label: 'Find seams', title: 'Let the history show you the seams', scene: 'srpSeams', done: 3,
       say: 'You do not have to guess who owns what. Version control already knows who changes each file, and which files change together.',
-      read: { term: [['cmd', 'git log --since="6 months ago" --format=%an -- src/OrderService.ts | sort | uniq -c | sort -rn'], ['dim', '  41 Priya (Finance)'], ['dim', '  33 Tom (Marketing)'], ['dim', '  19 Ana (DBA)'], ['dim', '  17 Sam (Security)']] },
+      read: { term: [['cmd', 'git log --since="6 months ago" --format=%an -- src/OrderService.ts | sort | uniq -c | sort -rn'], ['dim', '  41 Priya'], ['dim', '  33 Tom'], ['dim', '  19 Ana'], ['dim', '  17 Sam']] },
       blocks: [
         { p: 'Two questions find the seams in a big class:' },
-        { ol: ['**Who changes it?** Count commit authors per file and map them to teams. Four teams on one file means four reasons to change.', '**What changes together?** Look at which methods are edited in the same commits. Methods that always move together belong together.'] },
+        { ol: ['**Who changes it?** Count commit authors per file, then map each author to their team (Priya is in Finance, Tom in Marketing, and so on). Four teams on one file means four reasons to change.', '**What changes together?** Look at which files are edited in the same commits; `git log -L :price:src/OrderService.ts` narrows it to one function. Code that always moves together belongs together.'] },
         { lang: 'bash', code: `# who changes this file? (authors, most frequent first)
 git log --since="6 months ago" --format=%an -- src/OrderService.ts \\
   | sort | uniq -c | sort -rn
@@ -194,9 +202,13 @@ git log --since="6 months ago" --format= --name-only --full-diff -- src/OrderSer
     },
     {
       lvl: 'intermediate', label: 'Split safely', title: 'Refactor without breaking checkout', done: 3,
+      edges: [['req', 'god'], ['god', 'val'], ['god', 'price'], ['god', 'repo'], ['god', 'mail'], ['repo', 'db'], ['mail', 'smtp']],
+      flows: [['req', 'god', { n: 2 }], ['god', 'price', { n: 1, tone: 'ok' }]],
+      state: { price: 'ok', god: 'hl', val: 'dim', repo: 'dim', mail: 'dim', fin: 'dim', mkt: 'dim', dba: 'dim', sec: 'dim' },
       say: 'Do not rewrite the blob in one go. Pin down today\'s behaviour with tests, then move one responsibility at a time.',
       read: { term: [['cmd', 'npx vitest run checkout'], ['ok', 'characterization: totals for 50 recorded carts', '12 ms'], ['ok', 'characterization: receipt HTML snapshot', '4 ms'], ['dim', ''], ['dim', 'refactor step 1 of 4: extract PriceCalculator'], ['ok', 'all 52 tests still pass', '16 ms']] },
       blocks: [
+        { callout: 'illus', title: 'Illustrative output', text: 'The cart count, test count and timings in the terminal are made up for this example.' },
         { ol: ['Write [[characterization|characterization tests]]: run real carts through `OrderService` and record the totals and receipts it produces today.', 'Extract one class, for example `PriceCalculator`. Leave `OrderService.price()` in place, but make it call the new class.', 'Run the tests. Same results? Commit.', 'Repeat for the other responsibilities. Callers keep using `OrderService` as a [[facade|facade]] until you switch them over.'] },
         { lang: 'ts', code: `class OrderService {
   constructor(private pricing = new PriceCalculator()) {}
@@ -254,6 +266,7 @@ git log --since="6 months ago" --format= --name-only --full-diff -- src/OrderSer
     },
     {
       lvl: 'intermediate', label: 'Recap', title: 'Recap: one owner per module', done: 4,
+      state: { val: 'ok', price: 'ok', repo: 'ok', mail: 'ok' },
       say: 'Responsibility means an owner. Split along owner lines, behind tests, and stop when the pieces always change together.',
       blocks: [
         { ul: [
@@ -303,6 +316,12 @@ export const ocp = {
     union: ['Discriminated union', 'a type that is exactly one of a fixed list of shapes, told apart by a field such as `kind`.'],
     root: ['Composition root', 'the one place, usually at startup, where the app creates its objects and plugs them together.'],
   },
+  map: {
+    nodes: {
+      co: [46, 150, 80], proc: [160, 150, 128], iface: [300, 150, 112],
+      card: [424, 70, 104], paypal: [424, 150, 104], wallet: [424, 230, 104], edit: [160, 250, 140],
+    },
+  },
   nodes: {
     co: { x: 95, y: 230, label: 'Checkout', icon: 'card', kind: 'svc', w: 130 },
     proc: { x: 300, y: 230, label: 'PaymentProcessor', sub: 'switch (method)', icon: 'class', kind: 'class', w: 172, h: 62 },
@@ -345,7 +364,7 @@ export const ocp = {
       lvl: 'basics', label: 'Copies', title: 'The same switch, in three places', done: 1,
       say: 'It is rarely just one switch. Refunds, fees and receipts each grow their own copy, and every new method means hunting them all down.',
       add: ['edit'],
-      set: { proc: { sub: 'switch (method) +1 case' } },
+      set: { proc: { sub: 'switch: +1 case' } },
       edges: [['co', 'proc'], ['proc', 'card', { bend: -20 }], ['proc', 'paypal'], ['edit', 'proc', { dash: true, tone: 'bad' }]],
       flows: [['edit', 'proc', { tone: 'bad', n: 1, dur: 2 }]],
       state: { proc: 'bad' },
@@ -373,7 +392,7 @@ function receiptText(o: Order){ switch (o.method) { /* … */ } }` },
       add: ['iface'],
       remove: ['edit'],
       set: { proc: { sub: 'no switch' } },
-      edges: [['co', 'proc'], ['proc', 'iface', { label: 'uses' }], ['card', 'iface', { dash: true, tone: 'muted' }], ['paypal', 'iface', { dash: true, tone: 'muted' }]],
+      edges: [['co', 'proc'], ['proc', 'iface'], ['card', 'iface', { dash: true, tone: 'muted' }], ['paypal', 'iface', { dash: true, tone: 'muted' }]],
       flows: [['co', 'proc', { n: 2 }], ['proc', 'iface', { n: 2, delay: 0.3 }]],
       state: { iface: 'hl' },
       metrics: { branches: '0', edited: '—', retest: '—' },
@@ -414,10 +433,10 @@ class PaymentProcessor {
       lvl: 'basics', label: 'Register', title: 'One line to switch it on', done: 3,
       say: 'The new class still has to be plugged in somewhere. That is one line at startup, the only existing file that changes.',
       add: ['wallet'],
-      edges: [['co', 'proc'], ['proc', 'iface', { label: 'uses' }], ['card', 'iface', { dash: true, tone: 'muted' }], ['paypal', 'iface', { dash: true, tone: 'muted' }], ['wallet', 'iface', { dash: true, tone: 'ok' }]],
+      edges: [['co', 'proc'], ['proc', 'iface'], ['card', 'iface', { dash: true, tone: 'muted' }], ['paypal', 'iface', { dash: true, tone: 'muted' }], ['wallet', 'iface', { dash: true, tone: 'ok' }]],
       flows: [['co', 'proc', { n: 2 }], ['proc', 'iface', { n: 2 }]],
       state: { wallet: 'ok', iface: '', card: 'dim', paypal: 'dim', proc: 'dim' },
-      metrics: { edited: '0', retest: 'wallet only', methods: '3' },
+      metrics: { edited: '1 (startup)', retest: 'wallet only', methods: '3' },
       blocks: [
         { lang: 'ts', code: `// main.ts: the composition root
 const methods = new Map<string, PaymentMethod>([
@@ -443,7 +462,8 @@ const methods = new Map<string, PaymentMethod>([
       },
     },
     {
-      lvl: 'intermediate', label: 'Closed unions', title: 'When a switch is the better choice', done: 4,
+      lvl: 'intermediate', label: 'Closed unions', title: 'When a switch is the better choice', scene: 'ocpGrid', done: 4,
+      read: { tiles: [tile('New type', 'classes', '+1 file, no edits', 'good'), tile('New operation', 'union', '+1 function, no edits', 'good'), tile('Pick by', 'what grows', 'types or operations')] },
       say: 'Classes make new types easy to add. But if the types are fixed and you keep adding operations, a closed union with a compiler check is often simpler.',
       blocks: [
         { p: 'Here is the trade-off, sometimes called the expression problem:' },
@@ -542,6 +562,12 @@ export const lsp = {
     post: ['Postcondition', 'what a method promises once it returns, such as "the data is stored". A subtype may not promise less.'],
     invariant: ['Invariant', 'something that is always true about an object, such as "balance is never negative".'],
   },
+  map: {
+    nodes: {
+      job: [62, 80, 108], viewer: [62, 220, 108], store: [222, 150, 120], wstore: [222, 80, 124], rstore: [222, 220, 124],
+      disk: [404, 50, 120], bucket: [404, 150, 120], mirror: [404, 250, 130],
+    },
+  },
   nodes: {
     job: { x: 110, y: 160, label: 'BackupJob', sub: 'writes nightly', icon: 'clock', kind: 'svc', w: 150 },
     viewer: { x: 110, y: 340, label: 'ReportViewer', sub: 'reads only', icon: 'eye', kind: 'svc', w: 150 },
@@ -597,12 +623,12 @@ export const lsp = {
       ],
     },
     {
-      lvl: 'basics', label: '3 a.m.', title: 'The backup job gets a mirror and crashes', done: 2,
-      say: 'A config change hands the mirror to the backup job. At 3 a.m. every write throws, and the backup silently does not happen.',
+      lvl: 'basics', label: '3 a.m.', title: 'The backup job gets a mirror and fails', done: 2,
+      say: 'A config change hands the mirror to the backup job. At 3 a.m. every write throws, and there is no backup that night.',
       edges: [['job', 'store'], ['viewer', 'store'], ['disk', 'store', { dash: true, tone: 'muted' }], ['bucket', 'store', { dash: true, tone: 'muted' }], ['mirror', 'store', { dash: true, tone: 'bad' }]],
       flows: [['job', 'store', { n: 3, tone: 'bad', stall: 0.92 }]],
       state: { mirror: 'bad', job: 'bad' },
-      metrics: { failures: '1', checks: '0' },
+      metrics: { failures: '1', checks: '1' },
       blocks: [
         { p: 'The quick "fix" is a type check in the caller:' },
         { lang: 'ts', code: `if (store instanceof ReadOnlyMirror) return; // skip backup` },
@@ -662,7 +688,8 @@ new BackupJob(new ReadOnlyMirror()); // ✗ type error` },
       ],
     },
     {
-      lvl: 'intermediate', label: 'Square', title: 'The classic trap: Square extends Rectangle', done: 3,
+      lvl: 'intermediate', label: 'Square', title: 'The classic trap: Square extends Rectangle', scene: 'lspSquare', done: 3,
+      read: { tiles: [tile('Rectangle', '20', 'area, as expected', 'good'), tile('Square', '16', 'area, test fails', 'bad'), tile('Promise broken', 'width', 'setting it changed height')] },
       say: 'Mathematically, a square is a rectangle. In code, a Square that changes its height whenever you set its width breaks callers that resize rectangles.',
       blocks: [
         { lang: 'ts', code: `class Rectangle {
@@ -697,7 +724,7 @@ stretch(new Square(1, 1)); // 16` },
   ['DryRunStore', () => new DryRunStore()],
 ] as const;
 
-describe.each(stores)('%s keeps the WritableStore contract', (_name, make) => {
+describe.each(stores)('%s keeps the read-after-write contract', (_name, make) => {
   test('a read after write returns the same bytes', async () => {
     const s = make();
     await s.write('k', bytes('hello'));
@@ -788,7 +815,7 @@ export const dip = {
   ],
   scenes,
   terms: {
-    policy: ['Policy', 'the business rules: the decisions that make your product what it is, such as "an invoice 30 days overdue gets a reminder".'],
+    policy: ['Policy', 'the business rules: the decisions that make your product what it is, such as "an invoice 31 days past due gets a reminder".'],
     adapter: ['Adapter', 'a class that implements one of the rules\' interfaces using a real technology, such as Postgres or an email API.'],
     fake: ['Fake', 'a small working stand-in used in tests, such as an in-memory list instead of a database.'],
     di: ['Dependency injection', 'passing an object the things it needs (usually through its constructor) instead of it creating them itself.'],
@@ -798,6 +825,13 @@ export const dip = {
   zones: {
     policy: { x: 50, y: 30, w: 455, h: 400, label: 'POLICY · your domain', tone: 'accent' },
     detail: { x: 520, y: 30, w: 240, h: 400, label: 'DETAILS · infrastructure', tone: 'muted' },
+  },
+  map: {
+    zones: { policy: [6, 8, 468, 150], detail: [6, 166, 468, 128, 'b'] },
+    nodes: {
+      test: [70, 46, 116], svc: [240, 46, 136], repoIf: [150, 124, 124], notifIf: [340, 124, 140],
+      pg: [81, 216, 150], mem: [240, 216, 158], smtp: [396, 216, 148],
+    },
   },
   nodes: {
     svc: { x: 165, y: 230, label: 'InvoiceService', sub: 'business rules', icon: 'file', kind: 'class', w: 164, h: 62 },
@@ -960,7 +994,7 @@ schedule('0 9 * * *', () => invoices.sendReminders(new Date()));` },
     {
       lvl: 'intermediate', label: 'Role interfaces', title: 'Small interfaces, shaped by the client', done: 4,
       say: 'Let each client declare the small interface it needs, named after its role. One mail adapter can implement several of them.',
-      set: { notifIf: { label: 'OverdueNotifier', sub: 'notify(customer, msg)' }, smtp: { sub: 'implements several roles' } },
+      set: { notifIf: { label: 'OverdueNotifier', sub: 'notify(customer, msg)' }, smtp: { sub: 'several roles' } },
       edges: [['svc', 'repoIf', { label: 'needs' }], ['svc', 'notifIf', { label: 'needs' }], ['pg', 'repoIf', { dash: true, tone: 'muted' }], ['smtp', 'notifIf', { dash: true, tone: 'ok' }], ['test', 'svc']],
       flows: [['svc', 'notifIf', { n: 2 }]],
       state: { notifIf: 'ok', smtp: 'ok' },

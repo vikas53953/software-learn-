@@ -186,7 +186,7 @@ test('buy a lamp with SAVE10', async ({ page }) => {
       lvl: 'basics', label: 'Check', title: 'Quick check', here: [0, 1, 2], scene: 'quiz', done: 3,
       say: 'Your turn. Match each bug to the layer that should catch it.',
       check: {
-        type: 'match', q: 'Three bugs reached customers. Which test layer should have caught each one?', bins: ['Unit', 'Integration', 'End-to-end'],
+        type: 'match', q: 'Three bugs reached customers. Which test layer should have caught each one?', tail: 'Ask: what is the smallest thing that has to run to see this bug?', bins: ['Unit', 'Integration', 'End-to-end'],
         bugs: [
           { t: 'Tax is rounded to the wrong cent on orders over $100.', a: 0, why: 'Pure arithmetic in one function: a unit test.', hint: 'The tax bug is pure math inside one function.' },
           { t: 'A database column was renamed, and saving an order now fails.', a: 1, why: 'Only a test that talks to the real database sees this: an integration test.', hint: 'The column bug only shows up when real code meets the real database.' },

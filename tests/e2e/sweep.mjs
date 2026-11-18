@@ -37,17 +37,18 @@ async function page(viewport, colorScheme = 'light') {
 // Layout checks for the current step, run inside the page.
 const layout = () => {
   const out = [];
-  const nodes = [...document.querySelectorAll('.node:not(.is-hidden)')].map((g) => ({ id: g.dataset.id, r: g.querySelector('.node-body').getBoundingClientRect(), g }));
+  // Diagram nodes and the compact map nodes (src/mapscene.js) get the same checks.
+  const nodes = [...document.querySelectorAll('.node:not(.is-hidden), .map-node')].map((g) => ({ id: g.dataset.id, r: g.querySelector('.node-body, .map-body').getBoundingClientRect(), g }));
   for (let a = 0; a < nodes.length; a++) for (let c = a + 1; c < nodes.length; c++) {
     const A = nodes[a].r, C = nodes[c].r;
     if (Math.min(A.right, C.right) - Math.max(A.left, C.left) > 2 && Math.min(A.bottom, C.bottom) - Math.max(A.top, C.top) > 2) out.push(`nodes overlap: ${nodes[a].id} / ${nodes[c].id}`);
   }
-  for (const n of nodes) n.g.querySelectorAll('.node-label, .node-sub').forEach((t) => {
+  for (const n of nodes) n.g.querySelectorAll('.node-label, .node-sub, .m-lbl, .m-sub').forEach((t) => {
     if (t.style.display === 'none') return;
     const tr = t.getBoundingClientRect(), b = n.r;
     if (tr.width && (tr.right > b.right + 1 || tr.left < b.left - 1 || tr.top < b.top - 1 || tr.bottom > b.bottom + 1)) out.push(`text overflows ${n.id}: "${t.textContent}" (text ${tr.left.toFixed(1)}..${tr.right.toFixed(1)}, box ${b.left.toFixed(1)}..${b.right.toFixed(1)}, textLength ${[...t.querySelectorAll('tspan')].map((x) => x.getAttribute('textLength') || '-').join('/')}, measured ${[...t.querySelectorAll('tspan')].map((x) => x.getComputedTextLength().toFixed(1)).join('/')}, font "${getComputedStyle(t).fontFamily}", fonts ${document.fonts.status})`);
   });
-  document.querySelectorAll('.edge-label:not(.is-leaving)').forEach((l) => {
+  document.querySelectorAll('.edge-label:not(.is-leaving), .map-elbl').forEach((l) => {
     const lr = l.getBoundingClientRect();
     for (const n of nodes) { const R = n.r; if (lr.right > R.left + 2 && lr.left < R.right - 2 && lr.bottom > R.top + 2 && lr.top < R.bottom - 2) out.push(`edge label "${l.textContent}" covers ${n.id}`); }
   });

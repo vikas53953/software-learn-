@@ -59,3 +59,15 @@ The sweep passed through all of it. It checked phones on one lesson only and loo
 - Numbers read from storage are validated before use.
 - On phones, old diagram lessons now fit the whole diagram to the width instead of panning (this replaces the panning rule in entry 2 for the new player). Their scenes are rebuilt in the module PRs.
 
+
+## 9. Module 1 review: tiny phone diagrams, a leaked hint, stale stages (2026-11-18)
+
+**What happened.** Fable and the verifier both reviewed PR #4 (Module 1). The verifier gave a FAIL: the Testing Pyramid's "smallest thing that has to run" hint was hard-coded for every match check, so it showed on the SRP "split or keep together" check; and the "Split safely" terminal had unlabelled numbers. Fable found phone diagram text at 5–6.5 px, raw backticks in feedback and glossary text, and 13 steps whose stage did not change.
+
+**Why.** The node diagram was designed for an 800-wide desktop stage and was only ever shrunk for phones. The hint was written for the first lesson and lived in the player. Feedback text used `textContent`, so markdown showed raw.
+
+**Rule.**
+- Lesson-specific wording lives in the lesson (`check.tail`), never in the player.
+- Format-2 lessons give their node diagrams a compact `map`; the phone sees roughly 10 px labels.
+- Feedback, glossary popups and finish-card terms go through `md()`.
+- A step that teaches something new changes the stage: a new scene or at least its own state.

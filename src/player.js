@@ -2,6 +2,7 @@
 // Everything that reaches innerHTML goes through esc() or md(), or highlight() for code.
 import './player.css';
 import { Diagram, resolveStep } from './diagram.js';
+import { drawMap } from './mapscene.js';
 import { createScene } from './scene.js';
 import { highlight } from './highlight.js';
 import { esc, md } from './text.js';
@@ -160,7 +161,14 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
   function renderScene(s) {
     K.clear(); api = {};
     const custom = l.scenes && s.scene && l.scenes[s.scene];
-    canvas.classList.toggle('is-diagram', !custom);
+    canvas.classList.toggle('is-diagram', !custom && !l.map);
+    if (!custom && l.map) {
+      diagram?.destroy(); diagram = null;
+      if (!sceneSvg.isConnected) canvas.replaceChildren(sceneSvg);
+      sceneSvg.setAttribute('aria-label', s.title);
+      drawMap(K, l, i);
+      return resolveStep(l, i).metrics;
+    }
     if (custom) {
       diagram?.destroy(); diagram = null;
       if (!sceneSvg.isConnected) canvas.replaceChildren(sceneSvg);
@@ -219,7 +227,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
       const g = grade(c, c.type === 'match' ? picks : pick);
       if (c.type === 'match') c.bugs.forEach((b, k) => { const el = card.querySelector(`.bug[data-bug="${k}"] .lp-bin[data-bin="${picks[k]}"]`); el.classList.remove('sel'); el.classList.add(g.wrong.includes(k) ? 'wrong' : 'right'); });
       else card.querySelector(`.lp-opt[data-opt="${pick}"]`).classList.add(g.wrong.length ? 'wrong' : 'right');
-      if (!g.ok) return feedback(false, 'Not quite', `${g.hint}${c.type === 'match' ? ' Ask: what is the smallest thing that has to run to see this bug?' : ''} Try again.`);
+      if (!g.ok) return feedback(false, 'Not quite', `${g.hint}${c.tail ? ` ${c.tail}` : ''} Try again.`);
       const right = c.type === 'predict' ? g.right : true;
       const gain = xpFor(c, tries[i], right); xp += gain; $('.lp-xp').textContent = xp; answered.add(i);
       if (c.type !== 'predict' && tries[i] === 1) firstTry++;
@@ -238,7 +246,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
   }
   function feedback(good, h, p) {
     fb.className = `lp-fb show ${good ? 'good' : 'bad'}`;
-    fb.querySelector('h3').textContent = h; fb.querySelector('p').textContent = p;
+    fb.querySelector('h3').textContent = h; fb.querySelector('p').innerHTML = md(p);
     const b = fb.querySelector('[data-lp="fb"]'); b.textContent = good ? 'Continue' : 'Try again'; b.dataset.good = good ? '1' : '';
     b.focus({ preventScroll: true });
   }
@@ -309,7 +317,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
     card.innerHTML = `<div class="lp-finish"><svg class="medal" viewBox="0 0 96 96" aria-hidden="true"><circle cx="48" cy="52" r="34"/><path d="M33 52l10 10 20-22"/></svg>
       <h2>Lesson complete</h2><p>${md(l.finishLine || 'Nice work. Here is what you covered.')}</p>
       <div class="row"><div><b>${xp}</b><span>XP</span></div><div><b>${firstTry}/${nChecks}</b><span>first try</span></div><div><b>${st.n}</b><span>day streak</span></div></div>
-      ${terms.length ? `<div class="lp-label center">Key terms</div><div class="lp-gloss">${terms.map(([n, v]) => `<div><b>${esc(n)}.</b> ${esc(v.charAt(0).toUpperCase() + v.slice(1))}</div>`).join('')}</div>` : ''}
+      ${terms.length ? `<div class="lp-label center">Key terms</div><div class="lp-gloss">${terms.map(([n, v]) => `<div><b>${esc(n)}.</b> ${md(v.charAt(0).toUpperCase() + v.slice(1))}</div>`).join('')}</div>` : ''}
       <div class="lp-nav show"><button type="button" class="key ghost" data-lp="again">Watch again</button>${nextLesson ? `<a class="key go" href="#/${esc(nextLesson.slug)}/1">Next: ${esc(nextLesson.short)}</a>` : '<a class="key go" href="#/">Back to the course</a>'}</div></div>`;
     $('.lp-dnext').disabled = true;
     scrollCard(); confetti();
@@ -352,7 +360,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
     if (open) { open.remove(); return; }
     const entry = l.terms?.[key]; if (!entry) return;
     const d = document.createElement('span'); d.className = 'lp-pop'; d.dataset.for = key;
-    d.innerHTML = `<b>${esc(entry[0])}:</b> ${esc(entry[1])}`;
+    d.innerHTML = `<b>${esc(entry[0])}:</b> ${md(entry[1])}`;
     (anchor.closest('.lp-tablewrap') || anchor).after(d);
   }
   const onKey = (e) => {
