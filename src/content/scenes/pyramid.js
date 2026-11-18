@@ -270,8 +270,8 @@ export const scenes = {
     tx(240, 22, 'In a unit test, Checkout talks to stand-ins', { class: 's-cap', 'text-anchor': 'middle' });
     const ck = mk('rect', { x: 182, y: 118, width: 116, height: 60, rx: 12, fill: 'var(--l1)', stroke: 'var(--ink)', 'stroke-width': 2.4 }); tx(240, 153, 'Checkout', { class: 's-lbl', 'text-anchor': 'middle' });
     const deps = [
-      { x: 16, y: 40, real: ['Payments API', 'real money, slow'], dbl: ['MOCK', 'expects charge(9000)'], lx: 156, ly: 70, ex: 182, ey: 132 },
-      { x: 16, y: 210, real: ['Postgres', 'real database, slow'], dbl: ['FAKE', 'orders in memory'], lx: 156, ly: 240, ex: 182, ey: 164 },
+      { x: 16, y: 40, real: ['Payments API', 'real money, slow'], dbl: ['MOCK', 'expects 9000'], lx: 156, ly: 70, ex: 182, ey: 132 },
+      { x: 16, y: 210, real: ['Postgres', 'real DB, slow'], dbl: ['FAKE', 'orders in memory'], lx: 156, ly: 240, ex: 182, ey: 164 },
       { x: 324, y: 118, real: ['Tax service', 'another team'], dbl: ['STUB', 'rate is always 0'], lx: 324, ly: 148, ex: 298, ey: 148 },
     ];
     deps.forEach((d) => {

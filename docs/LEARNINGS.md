@@ -86,3 +86,12 @@ The sweep passed through all of it. It checked phones on one lesson only and loo
 - A command in a lesson is tested on a file shaped like the lesson's own code sample, not a convenient one. Regex ranges are anchored (`/^  price(/`).
 - Every scene label is read against the step's claim: what can this component actually see?
 - The player joins feedback parts with a space; the sweep checks a wrong prediction (`tests/e2e/sweep.mjs` 2a).
+
+## 12. A schema change is only safe if the version you roll back to still works (2026-11-18)
+
+**What happened.** The verifier failed #7: the expand/contract step had v1.6 stop reading and writing `price` in the same release that switched reads, so a rollback to v1.5 (which still reads `price`) would break, while the text said every step was rollback-safe. The rolling-update scene's "health check" label overflowed its 76-unit cell on phones; the sweep only checked text against the whole diagram, not against the box it sits in. Separately, the PR #8 verifier found that tile tone `ok` had no CSS, so tiles marked `ok` rendered neutral.
+
+**Rule.**
+- Every schema step names which versions run against it and what each reads and writes; "rollback-safe" is checked against the previous version, not the current one.
+- The sweep checks that text in a box or chip fits inside that box (`scene text overflows its box`); scenes choose a reduced-motion frame that shows their busiest state.
+- Tile tones `ok` and `good` render the same.

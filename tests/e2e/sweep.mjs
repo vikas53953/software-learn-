@@ -56,6 +56,13 @@ const layout = () => {
   if (scene?.isConnected) {
     const R = scene.getBoundingClientRect();
     scene.querySelectorAll('text').forEach((t) => { const r = t.getBoundingClientRect(); if (r.width && t.getAttribute('opacity') !== '0' && (r.left < R.left - 1 || r.right > R.right + 1 || r.top < R.top - 1 || r.bottom > R.bottom + 1)) out.push(`scene text outside the diagram: "${t.textContent}"`); });
+    // A group of one rect plus text is a box or chip: its text must fit inside it, side to side.
+    scene.querySelectorAll('g').forEach((g) => {
+      const box = g.firstElementChild;
+      if (box?.tagName !== 'rect' || g.querySelectorAll(':scope > rect, :scope > g').length !== 1) return;
+      const B = box.getBoundingClientRect();
+      g.querySelectorAll(':scope > text').forEach((t) => { const r = t.getBoundingClientRect(); if (r.width && (r.left < B.left - 1 || r.right > B.right + 1)) out.push(`scene text overflows its box: "${t.textContent}"`); });
+    });
     // A shape built with a fill or stroke must keep it: overwriting its style attribute wipes var() colours (black boxes, lost outlines).
     scene.querySelectorAll('rect, circle, path, polygon').forEach((s) => {
       if (s.closest('marker, defs')) return;
