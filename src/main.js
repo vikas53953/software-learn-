@@ -1,9 +1,9 @@
 import './styles.css';
 import { MODULES, LESSONS, bySlug } from './content/index.js';
-import { Diagram, resolveStep } from './diagram.js';
+import { Diagram } from './diagram.js';
 import { icon } from './icons.js';
-import { highlight } from './highlight.js';
-import { esc, md } from './text.js';
+import { esc } from './text.js';
+import { mountLesson } from './player.js';
 
 const app = document.getElementById('app');
 
@@ -19,8 +19,6 @@ const markSeen = (lesson, i) => {
 const lessonPct = (l) => Math.round((((progress[l.slug] ?? -1) + 1) / l.steps.length) * 100);
 
 // ---------- helpers ----------
-const TAGS = { problem: 'Problem', idea: 'Idea', solution: 'Solution', case: 'In practice', tradeoff: 'Trade-off', recap: 'Recap' };
-const CALLOUT = { key: ['bulb', 'Key idea'], tip: ['sparkle', 'Good to know'], warn: ['warn', 'Watch out'] };
 const pad = (n) => String(n).padStart(2, '0');
 const totalSteps = LESSONS.reduce((a, l) => a + l.steps.length, 0);
 const totalMinutes = LESSONS.reduce((a, l) => a + l.minutes, 0);
@@ -42,7 +40,7 @@ function syncThemeButton() {
 }
 
 // ---------- shell ----------
-const logo = `<svg class="logo" width="28" height="28" viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" class="logo-bg"/><path d="M7 24h18M9 24V13M16 24V9M23 24V13M6 13h20" class="logo-beams"/><circle cx="16" cy="9" r="2.6" class="logo-dot"/></svg>`;
+const logo = `<svg class="logo" width="30" height="30" viewBox="0 0 32 32" aria-hidden="true"><rect x="2" y="22" width="28" height="7" rx="2" class="pm-1"/><rect x="6" y="14" width="20" height="7" rx="2" class="pm-2"/><rect x="10" y="6" width="12" height="7" rx="2" class="pm-3"/></svg>`;
 
 app.innerHTML = `
   <header class="topbar">
@@ -128,7 +126,7 @@ searchInput.addEventListener('keydown', (e) => {
 searchEl.addEventListener('click', (e) => { if (e.target === searchEl || e.target.closest('a')) openSearch(false); });
 
 // ---------- state & routing ----------
-const state = { lesson: null, step: 0, diagram: null, paused: false, prevMetrics: {} };
+const state = { lesson: null, player: null };
 
 function parseHash() {
   const m = location.hash.match(/^#\/([a-z0-9-]+)(?:\/(\d+))?/);
@@ -147,26 +145,14 @@ function route() {
     document.title = 'Load-Bearing · Software engineering, one step at a time';
     return;
   }
-  if (state.lesson !== r.lesson) { teardownLesson(); renderLessonShell(r.lesson); window.scrollTo(0, 0); }
-  setStep(r.step);
-}
-
-function go(i) {
-  const l = state.lesson;
-  if (!l) return;
-  if (i < 0) return;
-  if (i >= l.steps.length) {
-    const next = LESSONS[l.globalIndex + 1];
-    location.hash = next ? `#/${next.slug}/1` : '#/';
-    return;
-  }
-  history.replaceState(null, '', `#/${l.slug}/${i + 1}`);
-  setStep(i);
+  if (state.lesson !== r.lesson) { teardownLesson(); renderLesson(r.lesson, r.step); window.scrollTo(0, 0); return; }
+  state.player.setStep(r.step);
 }
 
 function teardownLesson() {
-  state.diagram?.destroy();
-  state.diagram = null; state.lesson = null; state.prevMetrics = {};
+  state.player?.destroy();
+  state.player = null; state.lesson = null;
+  document.body.classList.remove('in-lesson');
   if (heroDiagram) { heroDiagram.destroy(); heroDiagram = null; clearInterval(heroTimer); }
 }
 
@@ -242,150 +228,26 @@ function renderHome() {
 }
 
 // ---------- lesson ----------
-function renderLessonShell(l) {
+function renderLesson(l, step) {
   state.lesson = l;
-  const m = l.module;
-  main.innerHTML = `
-    <div class="lesson">
-      <div class="lesson-main">
-        <div class="lesson-head">
-          <nav class="crumbs" aria-label="Breadcrumb"><a href="#/">Course</a><span>/</span><span>${pad(l.moduleIndex + 1)}. ${esc(m.name)}</span><span>/</span><span>Lesson ${l.indexInModule + 1} of ${m.lessons.length}</span></nav>
-          <h1>${esc(l.title)}</h1>
-          <div class="chips"><span class="chip">${icon('layers', 14)}${esc(l.short)}</span><span class="chip">${icon('clock', 14)}${l.minutes} min</span><span class="chip">${icon('chart', 14)}${esc(l.level)}</span><span class="chip">${icon('arrows', 14)}${l.steps.length} steps</span></div>
-          <p class="promise">${esc(l.promise)}</p>
-        </div>
-        <section class="card stage" aria-label="Diagram">
-          <div class="metrics" role="status" aria-live="polite">${l.metrics.map((x) => `<div class="metric" data-k="${x.key}"><span>${esc(x.label)}</span><strong>—</strong></div>`).join('')}</div>
-          <div class="diagram-host"></div>
-          <p class="pan-hint">Drag sideways to pan the diagram, or open it full screen.</p>
-          <div class="stage-foot">
-            <ul class="legend" aria-label="Legend">
-              <li><i class="lg accent"></i>flow</li><li><i class="lg ok"></i>healthy</li><li><i class="lg warn"></i>at risk</li><li><i class="lg bad"></i>failing</li><li><i class="lg dash"></i>implements / depends</li>
-            </ul>
-            <div class="stage-ctrls">
-              <button class="icon-btn sm" data-action="replay" aria-label="Replay the animation (R)">${icon('replay', 16)}</button>
-              <button class="icon-btn sm" data-action="pause" aria-label="Pause the animation (Space)">${icon('pause', 16)}</button>
-              <button class="icon-btn sm" data-action="full" aria-label="Show the diagram full screen (F)">${icon('expand', 16)}</button>
-            </div>
-          </div>
-        </section>
-        <section class="card timeline" aria-label="Steps in this lesson">
-          <div class="timeline-head"><strong>In this lesson</strong><span class="timeline-count"></span></div>
-          <ol class="dots">${l.steps.map((s, i) => `<li><button data-step="${i}" aria-label="Step ${i + 1}: ${esc(s.label)}"><span>${i + 1}</span></button><em>${esc(s.label)}</em></li>`).join('')}</ol>
-        </section>
-      </div>
-      <aside class="lesson-side">
-        <section class="card narrative" aria-live="polite"></section>
-        <section class="card learn">
-          <h2>You'll learn</h2>
-          <ul>${l.learn.map((t) => `<li><span class="tick">${icon('check', 13)}</span>${esc(t)}</li>`).join('')}</ul>
-        </section>
-      </aside>
-    </div>
-    <div class="mobile-nav">
-      <button class="btn" data-action="prev" aria-label="Previous step">${icon('left', 16)}</button>
-      <span class="mobile-count"></span>
-      <button class="btn primary" data-action="next">Next ${icon('right', 16)}</button>
-    </div>`;
-  state.diagram = new Diagram(main.querySelector('.diagram-host'));
-  state.diagram.setPaused(state.paused);
-  syncPause();
-}
-
-function setStep(i) {
-  const l = state.lesson;
-  state.step = i;
-  const s = l.steps[i];
-  const resolved = resolveStep(l, i);
-  state.diagram.render(l, i);
-  markSeen(l, i);
-  const host = main.querySelector('.diagram-host');
-  if (host.scrollWidth > host.clientWidth && host.dataset.centered !== l.slug) { host.scrollLeft = (host.scrollWidth - host.clientWidth) / 2; host.dataset.centered = l.slug; }
-  document.title = `${s.title} · ${l.short} · Load-Bearing`;
-
-  // metrics
-  main.querySelectorAll('.metric').forEach((m) => {
-    const k = m.dataset.k;
-    const v = resolved.metrics[k] ?? '—';
-    const strong = m.querySelector('strong');
-    if (strong.textContent !== String(v)) {
-      strong.textContent = v;
-      if (state.prevMetrics[k] !== undefined) { m.classList.remove('flash'); void m.offsetWidth; m.classList.add('flash'); }
-    }
-    state.prevMetrics[k] = v;
+  document.body.classList.add('in-lesson');
+  state.player = mountLesson(main, l, {
+    step,
+    nextLesson: LESSONS[l.globalIndex + 1],
+    onStep: (i) => { markSeen(l, i); history.replaceState(null, '', `#/${l.slug}/${i + 1}`); },
   });
-
-  // timeline
-  main.querySelectorAll('.dots li').forEach((li, k) => {
-    li.classList.toggle('is-done', k < i);
-    li.classList.toggle('is-current', k === i);
-    li.querySelector('button').setAttribute('aria-current', k === i ? 'step' : 'false');
-  });
-  main.querySelector('.timeline-count').textContent = `Step ${i + 1} of ${l.steps.length}`;
-
-  // learn list
-  const done = Math.max(...l.steps.slice(0, i + 1).map((x) => x.done || 0));
-  main.querySelectorAll('.learn li').forEach((li, k) => li.classList.toggle('is-done', k < done));
-
-  // narrative
-  const isLast = i === l.steps.length - 1;
-  const nextLesson = LESSONS[l.globalIndex + 1];
-  const nextLabel = isLast ? (nextLesson ? `Next lesson: ${nextLesson.short}` : 'Back to the course') : `Next: ${l.steps[i + 1].label}`;
-  const c = s.callout && CALLOUT[s.callout.type];
-  main.querySelector('.narrative').innerHTML = `
-    <div class="narr-top"><span class="step-no">Step ${i + 1} / ${l.steps.length}</span><span class="tag tag-${esc(s.tag)}">${esc(TAGS[s.tag] || s.tag)}</span></div>
-    <h2>${esc(s.title)}</h2>
-    <div class="narr-body">
-      ${(s.body || []).map((p) => `<p>${md(p)}</p>`).join('')}
-      ${s.code ? `<figure class="code"><figcaption>${esc(s.code.lang)}</figcaption><pre><code>${highlight(s.code.src, s.code.lang)}</code></pre></figure>` : ''}
-      ${c ? `<div class="callout callout-${s.callout.type}">${icon(c[0], 18)}<div><strong>${c[1]}</strong><p>${md(s.callout.text)}</p></div></div>` : ''}
-      ${s.changes ? `<div class="changes"><strong>What changed</strong><ul>${s.changes.map(([k, t]) => `<li class="ch-${k === '+' ? 'add' : k === '-' ? 'del' : 'mod'}"><span>${k === '~' ? '±' : esc(k)}</span>${md(t)}</li>`).join('')}</ul></div>` : ''}
-    </div>
-    <div class="narr-nav">
-      <button class="btn" data-action="prev" ${i === 0 ? 'disabled' : ''}>${icon('left', 16)} Back</button>
-      <button class="btn primary" data-action="next">${esc(nextLabel)} ${icon('right', 16)}</button>
-    </div>
-    <p class="hint"><kbd>←</kbd><kbd>→</kbd> step · <kbd>R</kbd> replay · <kbd>Space</kbd> pause · <kbd>F</kbd> full screen</p>`;
-  main.querySelector('.narrative .narr-body').scrollTop = 0;
-  main.querySelector('.mobile-count').textContent = `${i + 1} / ${l.steps.length}`;
-  main.querySelectorAll('[data-action="prev"]').forEach((b) => (b.disabled = i === 0));
-  main.querySelector('.mobile-nav [data-action="next"]').innerHTML = `${isLast ? (nextLesson ? 'Next lesson' : 'Finish') : 'Next'} ${icon('right', 16)}`;
-}
-
-function syncPause() {
-  const b = main.querySelector('[data-action="pause"]');
-  if (!b) return;
-  b.innerHTML = icon(state.paused ? 'play' : 'pause', 16);
-  b.setAttribute('aria-label', state.paused ? 'Resume the animation (Space)' : 'Pause the animation (Space)');
-  b.setAttribute('aria-pressed', String(state.paused));
-}
-function toggleFull(force) {
-  const st = main.querySelector('.stage');
-  if (!st) return;
-  const on = force ?? !st.classList.contains('is-full');
-  st.classList.toggle('is-full', on);
-  document.body.classList.toggle('no-scroll', on);
-  const b = st.querySelector('[data-action="full"]');
-  b.innerHTML = icon(on ? 'shrink' : 'expand', 16);
-  b.setAttribute('aria-label', on ? 'Exit full screen (F)' : 'Show the diagram full screen (F)');
 }
 
 // ---------- events ----------
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-action], [data-step]');
+  const t = e.target.closest('[data-action]');
   if (!t) return;
-  if (t.dataset.step !== undefined) return go(+t.dataset.step);
   switch (t.dataset.action) {
     case 'menu': return openDrawer(drawer.hidden);
     case 'close-drawer': return openDrawer(false);
     case 'search': return openSearch(true);
     case 'close-search': return openSearch(false);
     case 'theme': return toggleTheme();
-    case 'prev': return go(state.step - 1);
-    case 'next': return go(state.step + 1);
-    case 'replay': return state.diagram?.replay();
-    case 'pause': state.paused = !state.paused; state.diagram?.setPaused(state.paused); return syncPause();
-    case 'full': return toggleFull();
     case 'scroll-modules': return document.getElementById('modules')?.scrollIntoView({ behavior: 'smooth' });
   }
 });
@@ -395,19 +257,10 @@ document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape') {
     if (!searchEl.hidden) return openSearch(false);
     if (!drawer.hidden) return openDrawer(false);
-    if (main.querySelector('.stage.is-full')) return toggleFull(false);
   }
   const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName) || !searchEl.hidden;
   if (typing || e.altKey || e.ctrlKey || e.metaKey) return;
   if (e.key === '/') { e.preventDefault(); return openSearch(true); }
-  if (!state.lesson) return;
-  if (e.key === 'ArrowRight') { e.preventDefault(); go(state.step + 1); }
-  else if (e.key === 'ArrowLeft') { e.preventDefault(); go(state.step - 1); }
-  else if (e.key === 'r' || e.key === 'R') state.diagram?.replay();
-  else if (e.key === 'f' || e.key === 'F') toggleFull();
-  else if (e.key === ' ' && !(document.activeElement instanceof HTMLButtonElement)) {
-    e.preventDefault(); state.paused = !state.paused; state.diagram?.setPaused(state.paused); syncPause();
-  }
 });
 
 window.addEventListener('hashchange', route);
