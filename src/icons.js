@@ -57,3 +57,9 @@ export const ICONS = {
 
 export const icon = (name, size = 18, cls = '') =>
   `<svg class="i ${cls}" width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[name] || ICONS.box}</svg>`;
+
+// Static SVG used by the lesson player (play/pause paths, a tick, the mini pyramid mark).
+export const PLAY = '<path d="M7 4.5v15l13-7.5z"/>';
+export const PAUSE = '<path d="M6 4h4v16H6zM14 4h4v16h-4z"/>';
+export const TICK = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" aria-hidden="true"><path d="m5 12 5 5 9-10"/></svg>';
+export const MINI_PYRAMID = '<svg viewBox="0 0 32 32" width="26" height="26" aria-hidden="true"><rect x="2" y="22" width="28" height="7" rx="2" class="pm-1"/><rect x="6" y="14" width="20" height="7" rx="2" class="pm-2"/><rect x="10" y="6" width="12" height="7" rx="2" class="pm-3"/></svg>';

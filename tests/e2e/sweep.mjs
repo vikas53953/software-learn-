@@ -47,11 +47,16 @@ const layout = () => {
     const lr = l.getBoundingClientRect();
     for (const n of nodes) { const R = n.r; if (lr.right > R.left + 2 && lr.left < R.right - 2 && lr.bottom > R.top + 2 && lr.top < R.bottom - 2) out.push(`edge label "${l.textContent}" covers ${n.id}`); }
   });
+  const scene = document.querySelector('.lp-scene');
+  if (scene?.isConnected) {
+    const R = scene.getBoundingClientRect();
+    scene.querySelectorAll('text').forEach((t) => { const r = t.getBoundingClientRect(); if (r.width && t.getAttribute('opacity') !== '0' && (r.left < R.left - 1 || r.right > R.right + 1 || r.top < R.top - 1 || r.bottom > R.bottom + 1)) out.push(`scene text outside the diagram: "${t.textContent}"`); });
+  }
   if (document.documentElement.scrollWidth > window.innerWidth + 1) out.push(`page scrolls sideways (${document.documentElement.scrollWidth}px > ${window.innerWidth}px)`);
   return out;
 };
 
-// 1. Every step of every lesson, desktop.
+// 1. Every step of every lesson, desktop. Steps are opened from the progress bar (checks lock → until answered).
 const p = await page({ width: 1440, height: 900 });
 await p.goto(BASE);
 const hrefs = await p.$$eval('.module li a', (as) => as.map((a) => a.getAttribute('href')));
@@ -61,21 +66,24 @@ for (const href of hrefs) {
   const slug = href.split('/')[1];
   await p.goto(new URL(href, BASE).href);
   await p.waitForTimeout(150);
-  const n = await p.$$eval('.dots li', (l) => l.length);
+  const n = await p.$$eval('.lp-seg', (l) => l.length);
+  if (!(await p.isVisible('.lp-defn .big'))) fail(`${slug}: no definition on the lesson's first screen`);
   if (EV) await p.screenshot({ path: `${EV}/${slug}-first.png` });
   for (let i = 0; i < n; i++) {
-    if (i) await p.keyboard.press('ArrowRight');
-    await p.waitForTimeout(400);
+    const isCheck = await p.$eval(`.lp-seg[data-seg="${i}"]`, (b) => b.classList.contains('check'));
+    if (i && !isCheck && !(await p.$eval(`.lp-seg[data-seg="${i - 1}"]`, (b) => b.classList.contains('check')))) await p.keyboard.press('ArrowRight');
+    else await p.click(`.lp-seg[data-seg="${i}"]`);
+    await p.waitForTimeout(450);
     steps++;
     const hash = await p.evaluate(() => location.hash);
-    if (hash !== `#/${slug}/${i + 1}`) fail(`${slug}: after ${i} presses of → the URL is ${hash}`);
+    if (hash !== `#/${slug}/${i + 1}`) fail(`${slug}: step ${i + 1} shows URL ${hash}`);
     for (const x of await p.evaluate(layout)) fail(`${slug} step ${i + 1}: ${x}`);
   }
   if (EV) await p.screenshot({ path: `${EV}/${slug}-last.png` });
 }
-if (steps !== 111) fail(`expected 111 steps, swept ${steps}`);
+if (steps !== 123) fail(`expected 123 steps, swept ${steps}`);
 
-// 2. Search, theme, drawer, replay/pause.
+// 2. Search, theme, drawer, Play, definition, glossary, checks, slider, finish.
 await p.goto(BASE + '#/single-responsibility/1');
 await p.keyboard.press('Control+k');
 await p.keyboard.type('canary');
@@ -89,24 +97,65 @@ if (after === before) fail('theme toggle did not change the theme');
 await p.click('[data-action="menu"]');
 if (!(await p.isVisible('#drawer'))) fail('course menu did not open');
 await p.keyboard.press('Escape');
-await p.click('[data-action="pause"]');
-if ((await p.getAttribute('[data-action="pause"]', 'aria-pressed')) !== 'true') fail('pause button did not toggle');
+
+await p.goto(BASE + '#/test-pyramid/1');
+await p.waitForTimeout(300);
+await p.click('[data-lp="start-play"]');
+await p.waitForTimeout(1500);
+if ((await p.getAttribute('.lp-player [data-lp="play"]', 'aria-label')) !== 'Pause') fail('Play the explainer did not start playing');
+if (!(await p.evaluate(() => parseFloat(document.querySelector('.lp-scrub i').style.width) > 0))) fail('Play: the progress bar did not move');
+if (!(await p.isVisible('.lp-defn-mini'))) fail('definition did not collapse to a strip once the lesson started');
+await p.click('.lp-player [data-lp="play"]');
+if ((await p.getAttribute('.lp-player [data-lp="play"]', 'aria-label')) !== 'Play') fail('Pause did not stop playing');
+await p.click('.lp-card .term-btn');
+if (!(await p.isVisible('.lp-pop'))) fail('tapping a glossary word did not show its definition');
+
+await p.goto(BASE + '#/test-pyramid/6');
+await p.waitForTimeout(300);
+if (!(await p.isDisabled('.lp-card [data-lp="next"]'))) fail('Next is not locked on an unanswered check');
+await p.click('.lp-opt[data-opt="0"]'); await p.click('[data-lp="check"]');
+await p.waitForTimeout(300);
+if (!/applyDiscount|discount math|calculation/.test(await p.textContent('.lp-fb p'))) fail('a wrong answer did not show that option\'s hint');
+await p.click('[data-lp="fb"]');
+await p.click('.lp-opt[data-opt="1"]'); await p.click('[data-lp="check"]');
+await p.waitForTimeout(300);
+if ((await p.textContent('.lp-xp')) !== '5') fail(`a right answer after a retry should give 5 XP, got ${await p.textContent('.lp-xp')}`);
+await p.click('[data-lp="fb"]');
+await p.waitForTimeout(300);
+if ((await p.evaluate(() => location.hash)) !== '#/test-pyramid/7') fail('Continue after a right answer did not move on');
+
+await p.goto(BASE + '#/test-pyramid/8');
+await p.waitForTimeout(300);
+await p.$eval('#lp-range', (r) => { r.dispatchEvent(new Event('pointerdown')); r.value = '60'; r.dispatchEvent(new Event('input')); });
+await p.waitForTimeout(200);
+if (!/cone/i.test(await p.textContent('.lp-readout .lp-tile[data-k="2"] b'))) fail('slider at 60% did not turn the suite into an ice-cream cone');
+
+await p.goto(BASE + '#/test-pyramid/19');
+await p.waitForTimeout(300);
+await p.click('.lp-opt[data-opt="1"]'); await p.click('[data-lp="check"]');
+await p.click('[data-lp="fb"]');
+await p.waitForTimeout(400);
+if (!(await p.isVisible('.lp-finish'))) fail('the last check did not lead to the finish card');
 await p.goto(BASE + '#/tdd/8');
-await p.waitForTimeout(200);
+await p.waitForTimeout(300);
 await p.keyboard.press('ArrowRight');
-await p.waitForTimeout(200);
-if (!(await p.evaluate(() => location.hash)).startsWith('#/ci-pipeline/1')) fail('→ on the last step did not open the next lesson');
+await p.waitForTimeout(300);
+await p.click('.lp-finish a.go');
+await p.waitForTimeout(300);
+if (!(await p.evaluate(() => location.hash)).startsWith('#/ci-pipeline/1')) fail('the finish card did not open the next lesson');
 
 // 3. Phone width, dark theme.
 const m = await page({ width: 390, height: 844 }, 'dark');
-await m.goto(BASE + '#/race-conditions/1');
-await m.waitForTimeout(300);
-if (!(await m.isVisible('.mobile-nav'))) fail('phone: bottom navigation is not visible');
-await m.click('.mobile-nav [data-action="next"]');
-await m.waitForTimeout(300);
-if ((await m.evaluate(() => location.hash)) !== '#/race-conditions/2') fail('phone: Next button did not advance');
+await m.goto(BASE + '#/test-pyramid/2');
+await m.waitForTimeout(400);
+if (!(await m.isVisible('.lp-dock'))) fail('phone: bottom dock is not visible');
+await m.click('.lp-dnext');
+await m.waitForTimeout(500);
+if ((await m.evaluate(() => location.hash)) !== '#/test-pyramid/3') fail('phone: Next in the dock did not advance');
+const gap = await m.evaluate(() => Math.round(document.querySelector('.lp-card').getBoundingClientRect().top - document.querySelector('.lp-stage').getBoundingClientRect().bottom));
+if (gap < 0) fail(`phone: the lesson card is hidden under the diagram (${gap}px)`);
 if ((await m.evaluate(() => document.documentElement.scrollWidth)) > 391) fail('phone: page scrolls sideways');
-if (EV) await m.screenshot({ path: `${EV}/phone-dark.png`, fullPage: true });
+if (EV) await m.screenshot({ path: `${EV}/phone-dark.png` });
 await m.goto(BASE);
 if ((await m.evaluate(() => document.documentElement.scrollWidth)) > 391) fail('phone: home page scrolls sideways');
 

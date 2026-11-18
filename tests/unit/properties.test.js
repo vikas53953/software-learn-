@@ -4,6 +4,7 @@ import fc from 'fast-check';
 import { resolveStep, edgePath } from '../../src/diagram.js';
 import { highlight } from '../../src/highlight.js';
 import { esc, md } from '../../src/text.js';
+import { stepDuration, grade, nextStreak, wordCount } from '../../src/learn.js';
 
 const RUNS = process.env.FC_PROFILE === 'deep' ? 5000 : 300;
 const opts = { numRuns: RUNS };
@@ -68,7 +69,7 @@ describe('properties: step folding', () => {
 // Plain random strings almost never contain markup characters, so mix in strings built from them.
 const markupy = fc.oneof(
   fc.string({ unit: 'binary' }),
-  fc.string({ unit: fc.constantFrom('<', '>', '&', '"', "'", '`', '*', 'a', ' ', ';', '#', '?', '|'), maxLength: 30 }),
+  fc.string({ unit: fc.constantFrom('<', '>', '&', '"', "'", '`', '*', 'a', ' ', ';', '#', '?', '|', '[', ']', '-', '='), maxLength: 30 }),
 );
 
 describe('properties: text safety', () => {
@@ -92,13 +93,28 @@ describe('properties: text safety', () => {
     }), opts);
   });
   it('md equals esc for text without markdown markers', () => {
-    fc.assert(fc.property(markupy.filter((s) => !/[`*]/.test(s)), (s) => { expect(md(s)).toBe(esc(s)); }), opts);
+    fc.assert(fc.property(markupy.filter((s) => !/[`*]|\[\[/.test(s)), (s) => { expect(md(s)).toBe(esc(s)); }), opts);
   });
-  it('md never emits tags other than code and strong', () => {
-    fc.assert(fc.property(fc.string(), (s) => {
+  it('md never emits tags other than code, strong and the glossary button', () => {
+    fc.assert(fc.property(fc.oneof(fc.string(), markupy), (s) => {
       const tags = md(s).match(/<\/?[a-z]+/g) || [];
-      tags.forEach((t) => expect(['<code', '</code', '<strong', '</strong']).toContain(t));
+      tags.forEach((t) => expect(['<code', '</code', '<strong', '</strong', '<button', '</button']).toContain(t));
     }), opts);
+  });
+  it('md glossary buttons only carry [a-z0-9-] keys and escaped labels', () => {
+    const key = fc.string({ unit: fc.constantFrom('a', 'z', '0', '9', '-'), minLength: 1, maxLength: 8 });
+    const label = fc.string({ unit: fc.constantFrom('a', ' ', '<', '>', '&', '"', "'", '|', '['), minLength: 1, maxLength: 12 });
+    fc.assert(fc.property(key, label, markupy, (k, w, noise) => {
+      const out = md(`${noise}[[${k}|${w}]]`);
+      for (const m of out.matchAll(/data-term="([^"]*)"/g)) expect(m[1]).toMatch(/^[a-z0-9-]+$/);
+      if (!w.includes(']')) expect(out).toContain(`data-term="${k}">${esc(w)}</button>`);
+      // every attribute value md emits is quoted and holds no raw quote, angle bracket or ampersand
+      expect(out.replace(/data-term="[a-z0-9-]+"|type="button"|class="term-btn"/g, '')).not.toMatch(/="/);
+    }), opts);
+  });
+  it('md does not turn keys with other characters into buttons', () => {
+    const bad = fc.string({ unit: fc.constantFrom('A', ' ', '"', '<', '_', '.'), minLength: 1, maxLength: 6 });
+    fc.assert(fc.property(bad, (k) => { expect(md(`[[${k}|x]]`)).not.toContain('<button'); }), opts);
   });
 });
 
@@ -161,6 +177,54 @@ describe('properties: edge geometry', () => {
       expect(Math.abs(mid.y - (0.25 * y1 + 0.5 * cy + 0.25 * y2))).toBeLessThan(0.2);
       expect(onBoundary(a, { x: x1, y: y1 })).toBe(true);
       expect(onBoundary(b, { x: x2, y: y2 })).toBe(true);
+    }), opts);
+  });
+});
+
+describe('properties: lesson logic', () => {
+  const step = fc.record({ say: fc.string(), blocks: fc.array(fc.record({ p: fc.string() }), { maxLength: 6 }) });
+  it('Play time per step is 7–60 s at 1×, and scales inversely with speed', () => {
+    fc.assert(fc.property(step, fc.constantFrom(0.75, 1, 1.5), (s, sp) => {
+      const d = stepDuration(s, sp);
+      expect(d).toBeGreaterThanOrEqual(7000 / sp - 1e-6);
+      expect(d).toBeLessThanOrEqual(60000 / sp + 1e-6);
+      expect(d * sp).toBeCloseTo(stepDuration(s, 1), 6);
+    }), opts);
+  });
+  it('Play time never shrinks when the caption gets longer', () => {
+    fc.assert(fc.property(step, fc.string(), (s, more) => {
+      expect(stepDuration({ ...s, say: `${s.say} ${more}` })).toBeGreaterThanOrEqual(stepDuration(s));
+    }), opts);
+  });
+  it('a match is right exactly when every bug is in its bin, and lists the wrong ones', () => {
+    const bugs = fc.array(fc.integer({ min: 0, max: 2 }), { minLength: 1, maxLength: 5 });
+    fc.assert(fc.property(bugs, fc.array(fc.integer({ min: 0, max: 2 }), { maxLength: 5 }), (ans, picks) => {
+      const check = { type: 'match', bins: ['a', 'b', 'c'], bugs: ans.map((a, k) => ({ a, hint: `h${k}` })) };
+      const g = grade(check, picks);
+      const wrong = ans.map((a, k) => (picks[k] === a ? -1 : k)).filter((k) => k >= 0);
+      expect(g.ok).toBe(wrong.length === 0);
+      expect(g.wrong).toEqual(wrong);
+    }), opts);
+  });
+  it('a choice is right only for the answer index; a prediction always moves on', () => {
+    fc.assert(fc.property(fc.integer({ min: 1, max: 5 }), fc.nat(), fc.nat(), (n, a, p) => {
+      const ans = a % n, pick = p % n, opts2 = [...Array(n)].map((_, k) => ({ t: `o${k}`, hint: `h${k}` }));
+      expect(grade({ type: 'choice', opts: opts2, ans }, pick).ok).toBe(pick === ans);
+      const pr = grade({ type: 'predict', opts: opts2, ans }, pick);
+      expect(pr.ok).toBe(true); expect(pr.right).toBe(pick === ans);
+    }), opts);
+  });
+  it('the streak only ever stays, grows by one, or resets to 1', () => {
+    const day = fc.constantFrom('d1', 'd2', 'd3');
+    fc.assert(fc.property(fc.option(fc.record({ day, n: fc.integer({ min: 1, max: 99 }) }), { nil: null }), day, day, (prev, today, yesterday) => {
+      const n = nextStreak(prev, today, yesterday);
+      expect(n.day).toBe(today);
+      expect([1, prev?.n, (prev?.n ?? 0) + 1]).toContain(n.n);
+    }), opts);
+  });
+  it('wordCount ignores md markers', () => {
+    fc.assert(fc.property(fc.array(fc.stringMatching(/^[a-z]{1,6}$/), { maxLength: 8 }), (ws) => {
+      expect(wordCount(ws.map((w) => `**${w}**`).join(' '))).toBe(ws.length);
     }), opts);
   });
 });
