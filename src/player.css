@@ -236,4 +236,4 @@
 .lp-scene .m-sub { font: 500 11px var(--mono); fill: var(--muted); }
 .lp-scene .m-elbl { font: 600 11px var(--mono); fill: var(--ink); }
 .lp-scene .m-zone { font: 700 11px var(--mono); letter-spacing: .04em; fill: var(--muted); }
-.lp-scene .s-code { font: 500 12px var(--mono); fill: var(--code-ink); }
+.lp-scene .s-code { font: 500 12px var(--mono); fill: var(--code-ink); font-variant-ligatures: none; }

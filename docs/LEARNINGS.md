@@ -77,3 +77,12 @@ The sweep passed through all of it. It checked phones on one lesson only and loo
 **What happened.** Fix-forward 1 on #4 added `git log -L :price:src/OrderService.ts` to the SRP lesson. The verifier ran it: git has no TypeScript function finder, so it fails on an indented method. The grid also said "+1 file, no edits" while step 7 says the startup file gains a line.
 
 **Rule.** Every command or code sample added to a lesson is run once by the author before the push (the regex range form `-L '/price(/,/^  }/:file'` was checked in a scratch repo). Numbers repeated across steps are checked against each other.
+
+## 11. Run commands against the lesson's own example, and labels must match the claim (2026-11-18)
+
+**What happened.** Fix-forward 2 on #4 still failed: the unanchored `/price(/` matched the `this.price(cart)` call inside `checkout()` before the `price()` method, so `git log -L` followed the wrong code with no error. My scratch repo had `price()` first, so the check passed for the wrong reason. On #5 the decorator scene labelled the outer log line "3 tries", which the outer layer cannot know. On #6 a wrong prediction joined the option's feedback and the explanation with no space.
+
+**Rule.**
+- A command in a lesson is tested on a file shaped like the lesson's own code sample, not a convenient one. Regex ranges are anchored (`/^  price(/`).
+- Every scene label is read against the step's claim: what can this component actually see?
+- The player joins feedback parts with a space; the sweep checks a wrong prediction (`tests/e2e/sweep.mjs` 2a).

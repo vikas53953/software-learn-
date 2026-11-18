@@ -116,7 +116,7 @@ expect(user.trialEndsOn).toBe('2026-01-29');` },
       edges: [['test', 'sut'], ['sut', 'fakeDb'], ['sut', 'mail'], ['sut', 'stubClock'], ['sut', 'stubCaptcha']],
       flows: [['sut', 'fakeDb', { n: 2, tone: 'ok' }]],
       state: { mail: 'bad' },
-      metrics: { time: '1.1 s', det: 'yes', real: '1' },
+      metrics: { time: '1.1 s', det: 'almost', real: '1' },
       blocks: [
         { lang: 'ts', code: `class InMemoryUsers implements UserRepo {
   private byEmail = new Map<string, User>();
@@ -185,7 +185,7 @@ expect(mailer.send).toHaveBeenCalledWith(expect.objectContaining({ template: 'we
       lvl: 'basics', label: 'Check', title: 'Quick check', done: 2,
       say: 'Pick the double that fits the job.',
       check: {
-        type: 'choice', q: 'Your test must prove that a refund charges the payment gateway **exactly once**, for 4,999 cents. What do you put in place of the gateway?',
+        type: 'choice', q: 'Your test must prove that a refund is sent to the payment gateway **exactly once**, for 4,999 cents. What do you put in place of the gateway?',
         opts: [
           { t: 'A stub that always returns "ok"', hint: 'A stub answers, but it cannot tell you how many times it was called, or with what.' },
           { t: 'A spy or mock, then check the recorded call' },
@@ -474,7 +474,7 @@ export const slugify = (t: string) =>
     {
       lvl: 'intermediate', label: 'Recap', title: 'Recap: small steps, always green', scene: 'tddLoop', done: 4,
       say: 'Red proves the test can fail. Green with the simplest code. Refactor while green. New behaviour and every bug fix start with a red test.',
-      read: { tiles: [tile('Tests written', '4', 'each one red first'), tile('Bugs that can return', '0', 'regression test kept', 'good'), tile('Loop length', 'minutes', 'never far from green')] },
+      read: { tiles: [tile('Tests written', '4', 'each one red first'), tile('If the bug returns', 'red test', 'regression test kept', 'good'), tile('Loop length', 'minutes', 'never far from green')] },
       blocks: [
         { ul: [
           '**Red** first proves the test can fail; read why it fails.',

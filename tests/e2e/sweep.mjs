@@ -173,6 +173,13 @@ if (!(await p.evaluate(() => location.hash)).startsWith('#/ci-pipeline/1')) fail
   await p.click(`.lp-opt[data-opt="${lsp.steps[ci].check.ans}"]`); await p.click('[data-lp="check"]'); await p.waitForTimeout(200);
   const fbp = await p.$eval('.lp-fb p', (e) => [e.textContent, e.querySelectorAll('code').length]);
   if (fbp[0].includes('`') || !fbp[1]) fail(`feedback shows raw markdown: "${fbp[0].slice(0, 80)}"`);
+  // A wrong prediction shows the option's feedback and then the explanation, with a space between (verifier note on #6).
+  const dbl = LESSONS.find((l) => l.slug === 'test-doubles'), pi = dbl.steps.findIndex((s) => s.check?.type === 'predict');
+  const pc = dbl.steps[pi].check, wrong = pc.opts.findIndex((_, k) => k !== pc.ans && pc.fb[k]);
+  await p.goto(BASE + `#/test-doubles/${pi + 1}`); await p.waitForTimeout(300);
+  await p.click(`.lp-opt[data-opt="${wrong}"]`); await p.click('[data-lp="check"]'); await p.waitForTimeout(200);
+  const pf = await p.textContent('.lp-fb p');
+  if (/[a-z]\.[A-Z]/.test(pf)) fail(`predict feedback runs two sentences together: "${pf.slice(0, 90)}"`);
 }
 
 // 2b. Play with Voice on keeps going whether speech ends early, late or never (a browser with no voices never ends it).
