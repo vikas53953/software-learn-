@@ -51,7 +51,17 @@ const layout = () => {
   if (scene?.isConnected) {
     const R = scene.getBoundingClientRect();
     scene.querySelectorAll('text').forEach((t) => { const r = t.getBoundingClientRect(); if (r.width && t.getAttribute('opacity') !== '0' && (r.left < R.left - 1 || r.right > R.right + 1 || r.top < R.top - 1 || r.bottom > R.bottom + 1)) out.push(`scene text outside the diagram: "${t.textContent}"`); });
+    // A shape built with a fill or stroke must keep it: overwriting its style attribute wipes var() colours (black boxes, lost outlines).
+    scene.querySelectorAll('rect, circle, path, polygon').forEach((s) => {
+      if (s.closest('marker, defs')) return;
+      const cs = getComputedStyle(s), made = s.dataset.paint || '';
+      if (made.includes('f') && cs.fill === 'rgb(0, 0, 0)') out.push(`scene shape lost its fill (${s.tagName} ${s.getAttribute('class') || ''})`);
+      if (made.includes('s') && cs.stroke === 'none') out.push(`scene shape lost its outline (${s.tagName} ${s.getAttribute('class') || ''})`);
+    });
   }
+  const canvas = document.querySelector('.lp-canvas.is-diagram'), svg = canvas?.querySelector('.stage-svg');
+  if (svg && svg.getBoundingClientRect().right > canvas.getBoundingClientRect().right + 1) out.push('diagram is wider than its frame (nodes cropped)');
+  document.querySelectorAll('.lp-tile b, .lp-tile span').forEach((t) => { if (t.offsetParent && t.scrollWidth > t.clientWidth + 1) out.push(`tile text is clipped: "${t.textContent}"`); });
   if (document.documentElement.scrollWidth > window.innerWidth + 1) out.push(`page scrolls sideways (${document.documentElement.scrollWidth}px > ${window.innerWidth}px)`);
   return out;
 };
@@ -144,6 +154,23 @@ await p.click('.lp-finish a.go');
 await p.waitForTimeout(300);
 if (!(await p.evaluate(() => location.hash)).startsWith('#/ci-pipeline/1')) fail('the finish card did not open the next lesson');
 
+// 2b. Play with Voice on keeps going whether speech ends early, late or never (a browser with no voices never ends it).
+for (const mode of ['ends', 'never']) {
+  const v = await page({ width: 1440, height: 900 });
+  await v.addInitScript((m) => {
+    window.SpeechSynthesisUtterance = function (t) { this.text = t; };
+    Object.defineProperty(window, 'speechSynthesis', { value: { cancel() {}, speak(u) { if (m === 'ends') setTimeout(() => u.onend?.(), 300); } } });
+  }, mode);
+  await v.goto(BASE + '#/test-pyramid/2');
+  await v.waitForTimeout(300);
+  await v.click('.lp-player [data-lp="voice"]');
+  await v.click('.lp-player [data-lp="speed"]'); // 1.5×
+  await v.click('.lp-player [data-lp="play"]');
+  const moved = await v.waitForFunction(() => location.hash !== '#/test-pyramid/2', null, { timeout: 45000 }).then(() => true, () => false);
+  if (!moved) fail(`Play with voice (speech ${mode}) stalled on step 2`);
+  await v.context().close();
+}
+
 // 3. Phone width, dark theme.
 const m = await page({ width: 390, height: 844 }, 'dark');
 await m.goto(BASE + '#/test-pyramid/2');
@@ -158,6 +185,26 @@ if ((await m.evaluate(() => document.documentElement.scrollWidth)) > 391) fail('
 if (EV) await m.screenshot({ path: `${EV}/phone-dark.png` });
 await m.goto(BASE);
 if ((await m.evaluate(() => document.documentElement.scrollWidth)) > 391) fail('phone: home page scrolls sideways');
+
+// 4. Every step of every lesson on a phone (touch, dark, reduced motion): sideways scroll, cropped diagrams, clipped tiles, scene paint.
+const ph = await (await browser.newContext({ viewport: { width: 390, height: 844 }, colorScheme: 'dark', isMobile: true, hasTouch: true, reducedMotion: 'reduce' })).newPage();
+// Reduced motion makes each scene draw its end state at once, so colour changes made late in an animation are checked too.
+ph.on('pageerror', (e) => fail(`phone page error: ${e.message}`));
+let phoneSteps = 0;
+for (const href of hrefs) {
+  const slug = href.split('/')[1];
+  await ph.goto(new URL(href, BASE).href);
+  await ph.waitForTimeout(150);
+  const n = await ph.$$eval('.lp-seg', (l) => l.length);
+  for (let i = 1; i <= n; i++) {
+    await ph.goto(new URL(`#/${slug}/${i}`, BASE).href);
+    await ph.waitForTimeout(350);
+    phoneSteps++;
+    if ((await ph.evaluate(() => document.documentElement.scrollWidth)) > 391) fail(`phone ${slug} step ${i}: page scrolls sideways`);
+    for (const x of await ph.evaluate(layout)) if (!x.startsWith('page scrolls')) fail(`phone ${slug} step ${i}: ${x}`);
+  }
+}
+if (phoneSteps !== 123) fail(`phone: expected 123 steps, swept ${phoneSteps}`);
 
 await browser.close();
 console.log(`swept ${hrefs.length} lessons, ${steps} steps`);

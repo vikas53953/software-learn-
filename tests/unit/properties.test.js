@@ -225,6 +225,13 @@ describe('properties: lesson logic', () => {
       expect([1, prev?.n, (prev?.n ?? 0) + 1]).toContain(n.n);
     }), opts);
   });
+  it('the streak is always a positive whole number, whatever localStorage holds', () => {
+    const junk = fc.oneof(fc.constant(null), fc.string(), fc.double(), fc.integer({ min: -5, max: 5 }), fc.constant('<img src=x onerror=alert(1)>'), fc.constant(Infinity));
+    fc.assert(fc.property(fc.option(fc.record({ day: fc.constantFrom('d1', 'd2'), n: junk }), { nil: null }), fc.constantFrom('d1', 'd2'), (prev, today) => {
+      const { n } = nextStreak(prev, today, today === 'd1' ? 'd2' : 'd1');
+      expect(Number.isSafeInteger(n) && n >= 1).toBe(true);
+    }), opts);
+  });
   it('wordCount ignores md markers', () => {
     fc.assert(fc.property(fc.array(fc.stringMatching(/^[a-z]{1,6}$/), { maxLength: 8 }), (ws) => {
       expect(wordCount(ws.map((w) => `**${w}**`).join(' '))).toBe(ws.length);

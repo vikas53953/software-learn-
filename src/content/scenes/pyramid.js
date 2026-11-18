@@ -233,7 +233,7 @@ export const scenes = {
     const { mk, tx, loop, seg } = k;
     k.defs();
     const py = pyramid(k, { labels: false });
-    const fresh = py.bricks[0][6]; fresh.classList.add('off'); fresh.setAttribute('style', 'stroke:var(--accent)'); fresh.setAttribute('stroke-width', 3);
+    const fresh = py.bricks[0][6]; fresh.classList.add('off'); fresh.style.stroke = 'var(--accent)'; fresh.setAttribute('stroke-width', 3);
     const red = mk('path', { d: py.shape[2].getAttribute('d'), fill: 'var(--bad)', opacity: 0 });
     const b1 = mk('g', { opacity: 0 }); mk('rect', { x: 268, y: 26, width: 176, height: 30, rx: 10, fill: 'var(--bad-soft)', stroke: 'var(--bad)', 'stroke-width': 2 }, b1); tx(356, 46, '✗ caught here · 12 s', { class: 's-red', 'text-anchor': 'middle' }, b1);
     const arrow = mk('path', { d: 'M262,96 C430,110 430,210 352,232', fill: 'none', stroke: 'var(--accent)', 'stroke-width': 4, 'stroke-linecap': 'round', 'marker-end': 'url(#arG)', 'stroke-dasharray': 320, 'stroke-dashoffset': 320 });
@@ -316,7 +316,7 @@ export const scenes = {
 
   ci(k) {
     const { mk, tx, loop, lerp, seg } = k;
-    const st = [['Lint + unit', 'every push', '~1 min'], ['Integration', 'every push', '~4 min'], ['Smoke E2E', 'before deploy', '~1.5 min'], ['Full E2E', 'nightly', '~7 min']];
+    const st = [['Lint + unit', 'every push', '~1 min'], ['Integration', 'every push', '~4 min'], ['Smoke E2E', 'before merge', '~1.5 min'], ['Full E2E', 'nightly', '~7 min']];
     const fills = ['var(--l1)', 'var(--l2)', 'var(--l3)', 'var(--l3)'];
     mk('rect', { x: 14, y: 30, width: 92, height: 28, rx: 14, fill: 'var(--surface)', stroke: 'var(--ink)', 'stroke-width': 2 }); tx(60, 49, 'git push', { class: 's-mono', 'text-anchor': 'middle' });
     mk('line', { x1: 12, x2: 468, y1: 150, y2: 150, stroke: 'var(--muted)', 'stroke-width': 2, 'stroke-dasharray': '5 5' });
@@ -333,7 +333,7 @@ export const scenes = {
     const moon = tx(240, 268, '', { class: 's-note', 'text-anchor': 'middle' });
     loop((t) => {
       const T = t % 9, cur = Math.min(3, Math.floor(T / 2)), p = (T % 2) / 2;
-      boxes.forEach((b, j) => { const done = j < cur || (j === 3 && T > 7.9), now = j === cur && !done; b.bar.setAttribute('width', done ? 72 : now ? 72 * seg(p, 0, 0.9) : 0); b.okT.textContent = done ? '✓' : ''; b.r.setAttribute('style', `fill:${done ? 'var(--ok-soft)' : 'var(--surface)'}`); });
+      boxes.forEach((b, j) => { const done = j < cur || (j === 3 && T > 7.9), now = j === cur && !done; b.bar.setAttribute('width', done ? 72 : now ? 72 * seg(p, 0, 0.9) : 0); b.okT.textContent = done ? '✓' : ''; b.r.style.fill = done ? 'var(--ok-soft)' : 'var(--surface)'; });
       dot.setAttribute('cx', lerp(60, 66 + cur * 116, T < 0.5 ? T * 2 : 1)); dot.setAttribute('cy', T < 0.5 ? lerp(58, 104, T * 2) : 104);
       moon.textContent = cur === 3 ? 'full E2E runs tonight and does not block the merge' : '';
     });
@@ -341,7 +341,7 @@ export const scenes = {
 
   shapes(k) {
     const { mk, tx } = k;
-    [['var(--l0)', 'static checks', 18], ['var(--l1)', 'unit / detail', 128], ['var(--l2)', 'integration', 244], ['var(--l3)', 'end-to-end', 354]].forEach(([f, t, x]) => {
+    [['var(--l0)', 'static checks', 18], ['var(--l1)', 'unit / detail', 128], ['var(--l2)', 'integration', 244], ['var(--l3)', 'E2E / integrated', 354]].forEach(([f, t, x]) => {
       mk('rect', { x, y: 18, width: 12, height: 12, rx: 3, fill: f, stroke: 'var(--ink)', 'stroke-width': 1.5 }); tx(x + 18, 28, t, { class: 's-note s-ink' });
     });
     tx(240, 52, 'width = share of tests in each layer', { class: 's-note', 'text-anchor': 'middle' });
@@ -378,7 +378,7 @@ export const scenes = {
       dots.forEach((d, i) => {
         const on = i < n, bad = fails.has(i);
         if (on) { if (bad) f++; else p++; }
-        d.c.setAttribute('style', `fill:${on ? (bad ? 'var(--bad)' : 'var(--ok)') : 'var(--surface-2)'};stroke:${on ? 'var(--ink)' : 'var(--line)'}`);
+        d.c.style.fill = on ? (bad ? 'var(--bad)' : 'var(--ok)') : 'var(--surface-2)'; d.c.style.stroke = on ? 'var(--ink)' : 'var(--line)';
         d.s.textContent = on ? (bad ? '✗' : '✓') : '';
       });
       tally.textContent = n ? `${p} passed · ${f} failed` : '';

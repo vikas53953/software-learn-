@@ -29,6 +29,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
   const def = l.definition || { sentence: l.promise, mini: `**${l.short}:** ${l.promise}` };
   const m = l.module;
   let i = step, playing = false, speed = 1, voice = false, xp = 0, firstTry = 0, finished = false, resumeAfterCheck = false;
+  let timeUp = false, spoke = false;
   let tStart = 0, tDur = 0, playRaf = 0, termTimers = [], diagram = null, api = {};
   const answered = new Set(), tries = {};
   const st = nextStreak(store.get('lb:streak', null), new Date().toDateString(), new Date(Date.now() - 864e5).toDateString());
@@ -57,7 +58,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
     <section class="lp-defn" aria-label="Definition">
       <div class="lp-defn-full">
         <div class="what">
-          <div class="lp-label">Definition · in one sentence</div>
+          <div class="lp-label">${l.definition ? 'Definition · in one sentence' : 'In one sentence'}</div>
           <p class="big">${md(def.sentence)}</p>
           ${def.more ? `<p>${md(def.more)}</p>` : ''}
           ${def.analogy ? `<div class="lp-callout c-analogy"><b class="t">${esc(def.analogy.title)}</b>${md(def.analogy.text)}</div>` : ''}
@@ -77,7 +78,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
     <div class="lp-bench">
       <section class="lp-stage" aria-label="Animated diagram">
         <div class="lp-stage-top">
-          ${l.hereIcon === 'pyramid' ? '<svg class="lp-here" viewBox="0 0 30 24" aria-label="Where this step sits in the pyramid"><rect x="1" y="16" width="28" height="7" rx="2"/><rect x="5" y="8.5" width="20" height="7" rx="2"/><rect x="9" y="1" width="12" height="7" rx="2"/></svg>' : ''}
+          ${l.hereIcon === 'pyramid' ? '<svg class="lp-here" viewBox="0 0 30 24" role="img" aria-label="Where this step sits in the pyramid"><rect x="1" y="16" width="28" height="7" rx="2"/><rect x="5" y="8.5" width="20" height="7" rx="2"/><rect x="9" y="1" width="12" height="7" rx="2"/></svg>' : ''}
           <span class="lp-lvl"></span><strong class="lp-stitle"></strong><span class="lp-count"></span>
         </div>
         <div class="lp-canvas"></div>
@@ -117,7 +118,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
   };
   const readoutHtml = (r) => {
     if (r.term) return `<div class="lp-term" role="log"><div class="bar"><b></b><b></b><b></b></div>${r.term.map(lineHtml).join('')}</div>`;
-    if (r.tiles) return `<div class="lp-tiles" style="--n:${Math.min(4, r.tiles.length)}">${r.tiles.map((t, k) => `<div class="lp-tile${t.tone ? ` ${esc(t.tone)}` : ''}" data-k="${k}"><span>${esc(t.k)}</span><b>${esc(t.v)}</b><em>${esc(t.sub || '')}</em></div>`).join('')}</div>`;
+    if (r.tiles) return `<div class="lp-tiles" style="--n:${Math.min(4, r.tiles.length)}">${r.tiles.map((t, k) => `<div class="lp-tile${t.tone ? ` ${esc(t.tone)}` : ''}" data-k="${k}"><span>${esc(t.k)}</span><b${String(t.v).length > 9 ? ' class="long"' : ''}>${esc(t.v)}</b><em>${esc(t.sub || '')}</em></div>`).join('')}</div>`;
     return `<div class="lp-rnote">${esc(r.note || '')}</div>`;
   };
   function runReadout(r) {
@@ -128,7 +129,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
     if (r.term) r.term.forEach((_, k) => termTimers.push(setTimeout(() => $$(`.ln[data-k="${k}"]`).forEach((e) => e.classList.add('on')), reduced() ? 0 : 400 + (k * 600) / speed)));
   }
   const setTile = (k, v, tone, sub) => $$(`.lp-tile[data-k="${k}"]`).forEach((t) => {
-    t.querySelector('b').textContent = v; t.className = 'lp-tile' + (tone ? ` ${tone}` : '');
+    const b = t.querySelector('b'); b.textContent = v; b.classList.toggle('long', String(v).length > 9); t.className = 'lp-tile' + (tone ? ` ${tone}` : '');
     if (sub !== undefined) t.querySelector('em').textContent = sub;
   });
 
@@ -140,7 +141,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
     if (b.code !== undefined) return `<div class="lp-codewrap"><pre class="lp-code"><code>${highlight(b.code, b.lang || 'ts')}</code></pre></div>`;
     if (b.callout) { const t = b.title ?? CALLOUT[b.callout]; return `<div class="lp-callout c-${esc(b.callout)}">${t ? `<b class="t">${esc(t)}</b>` : ''}${md(b.text)}</div>`; }
     if (b.table) return `<div class="lp-tablewrap"><table class="lp-table"><thead><tr>${b.table.head.map((h) => `<th>${md(h)}</th>`).join('')}</tr></thead><tbody>${b.table.rows.map((r) => `<tr>${r.map((c) => `<td>${md(c)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>`;
-    if (b.slider) { const s = b.slider; return `<div class="lp-slider"><label for="lp-range">${esc(s.label).replace('{v}', `<span class="lp-range-v">${s.value}</span>`)}</label><input type="range" id="lp-range" min="${+s.min}" max="${+s.max}" step="${+s.step}" value="${+s.value}"><div class="ends"><span>${+s.min}%</span><span>${+s.max}%</span></div></div>`; }
+    if (b.slider) { const s = b.slider; return `<div class="lp-slider"><label for="lp-range">${esc(s.label).replace('{v}', `<span class="lp-range-v">${+s.value}</span>`)}</label><input type="range" id="lp-range" min="${+s.min}" max="${+s.max}" step="${+s.step}" value="${+s.value}"><div class="ends"><span>${+s.min}%</span><span>${+s.max}%</span></div></div>`; }
     if (b.changes) return `<div class="lp-changes"><b class="t">What changed</b><ul>${b.changes.map(([k, t]) => `<li class="ch-${k === '+' ? 'add' : k === '-' ? 'del' : 'mod'}"><span>${k === '~' ? '±' : esc(k)}</span>${md(t)}</li>`).join('')}</ul></div>`;
     return '';
   };
@@ -199,7 +200,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
     document.title = `${s.title} · ${l.short} · Load-Bearing`;
   }
 
-  const paintSegs = () => $$('.lp-seg').forEach((b, k) => { b.querySelector('i').style.width = k < i || finished ? '100%' : k === i ? '30%' : '0'; b.toggleAttribute('aria-current', k === i); });
+  const paintSegs = () => $$('.lp-seg').forEach((b, k) => { b.querySelector('i').style.width = k < i || finished ? '100%' : k === i ? '30%' : '0'; if (k === i) b.setAttribute('aria-current', 'step'); else b.removeAttribute('aria-current'); });
 
   // ---------- checks ----------
   function wireQuiz(c) {
@@ -224,7 +225,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
       if (c.type !== 'predict' && tries[i] === 1) firstTry++;
       store.set('lb:xp', store.get('lb:xp', 0) + gain);
       btn.hidden = true; markSolved(c); unlock();
-      if (c.type === 'predict') { feedback(true, right ? `Spot on! +${gain} XP` : `Good guess. +${gain} XP`, (g.hint || '') + c.why); api.reveal?.(); }
+      if (c.type === 'predict') { feedback(true, right ? `Spot on! +${gain} XP` : `Locked in. +${gain} XP`, (g.hint || '') + c.why); api.reveal?.(); }
       else feedback(true, tries[i] === 1 ? `Correct! +${gain} XP` : `Got it. +${gain} XP`, c.type === 'match' ? c.bugs.map((b) => b.why).join(' ') : c.why);
     });
   }
@@ -252,6 +253,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
   const collapseDef = () => $('.lp-defn').classList.add('mini', 'started');
   function go(k, { scroll = true } = {}) {
     i = Math.max(0, Math.min(S.length - 1, k)); finished = false; fb.classList.remove('show');
+    $('.lp-scrub i').style.width = '0%';
     if (i > 0 || playing) collapseDef();
     render(); onStep?.(i);
     if (scroll) scrollCard();
@@ -262,15 +264,18 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
     const p = Math.min(1, (now - tStart) / tDur);
     $('.lp-scrub i').style.width = `${p * 100}%`;
     $$('.lp-seg')[i].querySelector('i').style.width = `${p * 100}%`;
-    if (p >= 1 && !voice) return advance();
+    if (p >= 1) { timeUp = true; if (!voice || spoke || now - tStart > tDur * 2 + 4000) return advance(); }
     playRaf = requestAnimationFrame(tick);
   }
   function startStep() {
     const s = S[i];
     cancelAnimationFrame(playRaf);
     if (s.check && !answered.has(i)) { playing = false; resumeAfterCheck = true; setIcon(); speak(sayOf(s)); $('.lp-scrub i').style.width = '100%'; return; }
-    tStart = performance.now(); tDur = stepDuration(s, speed); playRaf = requestAnimationFrame(tick);
-    if (voice) speak(sayOf(s), () => { if (playing) termTimers.push(setTimeout(() => playing && performance.now() - tStart >= tDur * 0.5 && advance(), 900)); });
+    tStart = performance.now(); tDur = stepDuration(s, speed); timeUp = false; spoke = false; playRaf = requestAnimationFrame(tick);
+    // With voice on, move on after whichever ends later: the step's time or the speech (plus a short pause).
+    // tick() also gives up waiting for speech that never ends, which happens when the browser has no voices.
+    const at = i;
+    if (voice) speak(sayOf(s), () => termTimers.push(setTimeout(() => { if (i !== at) return; spoke = true; if (playing && timeUp) advance(); }, 700)));
   }
   function advance() { if (i >= S.length - 1) { finish(); return; } go(i + 1); startStep(); }
   function play() { if (finished) go(0); playing = true; collapseDef(); setIcon(); startStep(); }

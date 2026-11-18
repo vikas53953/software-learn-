@@ -42,3 +42,20 @@ Every owner pushback, verifier FAIL and retro adds an entry: what happened, the 
 **What happened.** Two Fable reviews of the mock found a list of must-fixes. Some were layout (the reading card slid under the sticky diagram on Play and at the finish; terminals clipped), and some were teaching problems: a claim about a `TEN_OFF` code on step 11 was wrong, the CI timing example had to be reworked, and predict questions gave the same feedback for every answer.
 **Lesson.** A reviewer reading as a learner catches wrong claims and awkward flow that a layout sweep cannot.
 **Rule.** The content-accuracy read covers numbers inside scenes and code, not just prose. Illustrative numbers say so.
+
+## 8. Verifier FAIL on the redesign engine (2026-11-18)
+
+**What happened.** The independent verifier failed PR #3, and Fable's review of the same build found overlapping problems:
+- Old lessons scrolled sideways on phones, because a long one-word tile value like `OrderService` could not wrap. Their diagrams were also cropped.
+- Two Testing Pyramid diagrams lost their colours partway through an animation. Code replaced an SVG element's whole `style` attribute, which wiped the `var()` colours that `mk()` keeps there.
+- With voice on, Play could stall for good.
+- The day streak from `localStorage` reached `innerHTML` unescaped.
+
+The sweep passed through all of it. It checked phones on one lesson only and looked at each diagram 450 ms in, before the late colour change.
+**Lesson.** A check that samples one lesson or one moment says nothing about the rest. Values from storage count as user input.
+**Rule.**
+- The sweep covers every step on a phone, with reduced motion so each scene shows its end state.
+- Scene code changes colours with `el.style.fill` or `el.style.stroke`, never with `setAttribute('style')`.
+- Numbers read from storage are validated before use.
+- On phones, old diagram lessons now fit the whole diagram to the width instead of panning (this replaces the panning rule in entry 2 for the new player). Their scenes are rebuilt in the module PRs.
+

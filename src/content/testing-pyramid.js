@@ -54,7 +54,7 @@ export const pyramid = {
     {
       lvl: 'basics', label: 'Unit', title: 'Unit tests: the wide base', here: [0], scene: 'unit', done: 1,
       say: 'A unit test calls one function directly and checks the answer. No database, no network, no browser. That is why each one takes about a millisecond.',
-      read: { term: [cmd('npx vitest price'), ok('SAVE10 takes 10% off', '2 ms'), ok('unknown code changes nothing', '1 ms'), dim(''), dim('Test Files  1 passed'), dim('     Tests  2 passed (0.04 s)')] },
+      read: { term: [cmd('npx vitest run price'), ok('SAVE10 takes 10% off', '2 ms'), ok('unknown code changes nothing', '1 ms'), dim(''), dim('Test Files  1 passed'), dim('     Tests  2 passed (0.04 s)')] },
       blocks: [
         { p: 'Our shop has a function that works out a price after a discount code. Prices are stored in **cents** (whole numbers), so $100.00 is `10000`.' },
         { lang: 'ts', code: `import { test, expect } from 'vitest';
@@ -90,7 +90,7 @@ test('unknown code changes nothing', () => {
     {
       lvl: 'basics', label: 'Integration', title: 'Integration tests: the middle', here: [1], scene: 'integration', done: 1,
       say: 'A unit test never talks to a database, so it cannot tell you if your SQL is right. An integration test runs your real code against a real, throwaway database.',
-      read: { term: [cmd('npx vitest orders --project integration'), dim('starting postgres test container… 2.8 s'), ok('saves an order and reads it back', '180 ms'), ok('rejects an order with no items', '95 ms'), dim(''), dim('     Tests  2 passed (3.1 s incl. start-up)')] },
+      read: { term: [cmd('npx vitest run orders --project integration'), dim('starting postgres test container… 2.8 s'), ok('saves an order and reads it back', '180 ms'), ok('rejects an order with no items', '95 ms'), dim(''), dim('     Tests  2 passed (3.1 s incl. start-up)')] },
       blocks: [
         { p: 'The shop saves orders with an `OrderRepository`. This test uses the real class and a real Postgres database started just for the test (for example with Testcontainers):' },
         { lang: 'ts', code: `test('saves an order and reads it back', async () => {
@@ -125,8 +125,8 @@ test('buy a lamp with SAVE10', async ({ page }) => {
   await page
     .getByRole('button', { name: 'Pay' })
     .click();
-  await expect(page.getByRole('heading'))
-    .toHaveText('Thanks for your order');
+  await expect(page.getByRole('heading', { name: 'Thanks for your order' }))
+    .toBeVisible();
 });` },
         { p: 'If this passes, a real customer can almost certainly check out. But it takes seconds, needs every part running, and when it fails the cause could be anywhere: the page, the server, the database or the network.' },
       ],
@@ -197,7 +197,7 @@ test('buy a lamp with SAVE10', async ({ page }) => {
     {
       lvl: 'intermediate', label: 'Push down', title: 'Push each test down', here: [2, 0], scene: 'push', done: 3,
       say: 'When a slow test catches a bug, ask: what is the lowest layer that could have caught it? Write that test first, watch it fail, then fix the code.',
-      read: { term: [cmd('npx vitest price'), no('price never goes below zero', 'expected -500 to be 0'), dim('… fix applied …'), cmd('npx vitest price'), ok('price never goes below zero', '2 ms'), ok('SAVE10 takes 10% off', '1 ms')] },
+      read: { term: [cmd('npx vitest run price'), no('price never goes below zero', 'expected -500 to be +0'), dim('… fix applied …'), cmd('npx vitest run price'), ok('price never goes below zero', '2 ms'), ok('SAVE10 takes 10% off', '1 ms')] },
       blocks: [
         { p: 'The end-to-end checkout test fails: a $5 sticker with the `TEN_OFF` code ($10 off) charged the customer **−$5** (someone had added a `TEN_OFF` branch to `applyDiscount`). It took 12 seconds and a screenshot to notice. Before fixing it, write the cheapest test that sees the bug:' },
         { lang: 'ts', code: `// The bug: this branch was added last week
@@ -232,7 +232,7 @@ if (code === 'TEN_OFF') return Math.max(0, cents - 1000);` },
     {
       lvl: 'intermediate', label: 'Doubles', title: 'Stubs, mocks and fakes', here: [0], scene: 'doubles', done: 4,
       say: 'To keep unit tests fast, swap slow or risky parts for stand-ins. A stub gives fixed answers, a mock checks it was called correctly, and a fake is a tiny working copy.',
-      read: { term: [cmd('npx vitest checkout'), ok('charges the discounted total', '3 ms'), dim('  mock  payments.charge called with 9000 ✓'), dim('  fake  orders.count() = 1 ✓'), dim('  stub  tax.rateFor() returned 0'), dim('     Tests  1 passed (0.05 s)')] },
+      read: { term: [cmd('npx vitest run checkout'), ok('charges the discounted total', '3 ms'), dim('  mock  payments.charge called with 9000 ✓'), dim('  fake  orders.count() = 1 ✓'), dim('  stub  tax.rateFor() returned 0'), dim('     Tests  1 passed (0.05 s)')] },
       blocks: [
         { p: 'Checkout needs three things: a payment service (slow, costs money), the order database (slow) and a tax service. In a unit test we replace them with **test doubles**:' },
         { table: { head: ['Double', 'What it does', 'Here'], rows: [
@@ -302,7 +302,7 @@ await provider.executeTest(async (mock) => {
           ['**Full E2E**', 'nightly or before a release', '7 min'],
         ] } },
         { ul: ['A **smoke** suite is a handful of end-to-end tests for the journeys that must never break, such as sign-in and checkout.', 'If a stage fails, later stages don\'t run, so you hear back in minutes, not an hour.', 'Quarantined flaky tests run in their own job that reports but does not block.'] },
-        { p: 'Times are illustrative, for the 40 end-to-end tests the team kept in step 12 (about 10 s each).' },
+        { p: 'Times are illustrative, for the 40 end-to-end tests the team kept in step 12 (about 10 s each). Each stage also pays for CI start-up: installing dependencies and starting the test database or browser. That is why the stages add up to more than the raw test time in step 12.' },
       ],
     },
     {

@@ -28,11 +28,12 @@ function checkV2(l, s, i, err) {
   } else err(l, i, `bad check type ${c.type}`);
 }
 
-export function checkContent() {
+/** Checks the given lessons (all of them by default) and returns a list of problems. */
+export function checkContent(lessons = LESSONS) {
 const errors = [];
 const err = (l, i, m) => errors.push(`${l.slug} step ${i + 1}: ${m}`);
 const slugs = new Set();
-for (const l of LESSONS) {
+for (const l of lessons) {
   if (slugs.has(l.slug)) err(l, -1, 'duplicate slug'); slugs.add(l.slug);
   if (l.format === 2 && !l.definition?.sentence) err(l, -1, 'format 2 lesson needs definition.sentence');
   const nodes = new Set(Object.keys(l.nodes || {})), zones = new Set(Object.keys(l.zones || {}));

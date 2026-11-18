@@ -84,7 +84,9 @@
 .lp-tiles { display: grid; grid-template-columns: repeat(var(--n, 3), minmax(0, 1fr)); gap: 10px; min-height: 120px; }
 .lp-tile { border: 2px solid var(--ink); border-radius: 12px; background: var(--surface-2); padding: 8px 12px; display: flex; flex-direction: column; justify-content: center; min-width: 0; gap: 3px; }
 .lp-tile span { font: 700 10.5px/1.2 var(--mono); letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
-.lp-tile b { font: 800 21px/1.15 var(--display); font-variant-numeric: tabular-nums; }
+.lp-tile b { font: 800 21px/1.15 var(--display); font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.lp-tile b.long { font-size: 16px; }
+.lp-tile span, .lp-tile em { overflow-wrap: anywhere; }
 .lp-tile em { font-style: normal; font-size: 12.5px; line-height: 1.3; color: var(--muted); }
 .lp-tile.good { border-color: var(--ok); background: var(--ok-soft); } .lp-tile.bad { border-color: var(--bad); background: var(--bad-soft); }
 .lp-rnote { height: 120px; display: grid; place-items: center; border: 2px dashed var(--line); border-radius: 12px; color: var(--muted); font: 600 15px/1.4 var(--display); text-align: center; padding: 0 16px; }
@@ -207,14 +209,18 @@
   .lp-stage { position: sticky; top: 0; border-radius: 0 0 18px 18px; margin: 0 -16px; border-left: 0; border-right: 0; border-top: 0; box-shadow: 0 4px 0 var(--ink); }
   .lp-stage-top { padding: 8px 12px; }
   .lp-canvas .lp-scene { height: min(30vh, 230px); }
-  .lp-canvas.is-diagram { overflow-x: auto; overscroll-behavior-x: contain; }
-  .lp-canvas.is-diagram .stage-svg { width: 560px; max-width: none; height: min(30vh, 322px); }
+  /* Old diagram lessons fit the whole picture to the width: a cropped pan view hid nodes (Fable review, PR 3). */
+  .lp-canvas.is-diagram { overflow: hidden; }
+  .lp-canvas.is-diagram .stage-svg { width: 100%; height: auto; }
   .lp-readout { display: none; }
   .lp-caption { min-height: 0; padding: 8px 14px 4px; font-size: 14.5px; }
   .lp-player { padding: 6px 14px 10px; } .lp-player .key:not([data-lp="speed"]) { display: none; }
-  .lp-phone-readout { display: block; } .lp-phone-readout .lp-term, .lp-phone-readout .lp-tiles { min-height: 0; }
+  .lp-phone-readout { display: block; min-width: 0; } .lp-phone-readout .lp-term, .lp-phone-readout .lp-tiles { min-height: 0; }
+  .lp-tiles[style*="--n:4"] { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .lp-defn-mini { flex-wrap: wrap; } .lp-defn-mini p { flex: 1 1 calc(100% - 60px); } .lp-defn-mini .key { margin-left: auto; }
+  .lp-scene .s-note { font-size: 12.5px; }
   .lp-phone-readout .lp-rnote { display: none; }
-  .lp-tiles { gap: 6px; } .lp-tile { padding: 8px; } .lp-tile b { font-size: 17px; } .lp-tile em { font-size: 11.5px; }
+  .lp-tiles { gap: 6px; } .lp-tile { padding: 8px; } .lp-tile b { font-size: 17px; } .lp-tile b.long { font-size: 14px; } .lp-tile em { font-size: 11.5px; }
   .lp-card { padding: 18px 16px 14px; }
   .lp-card .lp-nav:not(.show) { display: none; }
   .lp-card h2 { font-size: 23px; }

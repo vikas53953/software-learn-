@@ -21,6 +21,10 @@ export function createScene(svg) {
       else e.setAttribute(k, v);
     }
     if (st) e.setAttribute('style', st);
+    // Records which paints the shape was made with, so the sweep can spot one that was later wiped.
+    const paint = (a.fill && a.fill !== 'none' ? 'f' : '') + (a.stroke && a.stroke !== 'none' ? 's' : '');
+    if (paint && tag !== 'text') e.dataset.paint = paint;
+    // Change colours later with e.style.fill / e.style.stroke, never setAttribute('style'), which drops the rest.
     p.appendChild(e);
     return e;
   };

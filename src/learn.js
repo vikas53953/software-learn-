@@ -62,8 +62,10 @@ export function xpFor(check, tries, right) {
 
 /** Day streak: same day keeps it, the day after adds one, any gap resets to 1. */
 export function nextStreak(prev, today, yesterday) {
-  if (prev && prev.day === today) return { day: today, n: prev.n };
-  if (prev && prev.day === yesterday) return { day: today, n: prev.n + 1 };
+  // The stored streak comes from localStorage, so anything that is not a positive whole number starts over at 1.
+  const n = prev && Number.isSafeInteger(prev.n) && prev.n > 0 ? prev.n : 0;
+  if (n && prev.day === today) return { day: today, n };
+  if (n && prev.day === yesterday) return { day: today, n: n + 1 };
   return { day: today, n: 1 };
 }
 
