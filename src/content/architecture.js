@@ -138,11 +138,14 @@ export interface Payments { charge(o: Order, amount: Money): Promise<ChargeRef>;
       blocks: [
         { lang: 'ts', code: `// adapters/paycoPayments.ts: the one place PayCo appears
 import { PayCo } from 'payco-sdk';
-import type { Order, Money, Payments } from '../core/ports';
+import type { Order, Money } from '../core/order';
+import type { Payments } from '../core/ports';
 
 export class PayCoPayments implements Payments {
+  constructor(private readonly key: string) {}
+
   async charge(o: Order, amount: Money) {
-    const c = await PayCo.charges.create({ amount: amount.cents, ref: o.id });
+    const c = await PayCo.charges.create({ amount: amount.cents, ref: o.id }, { apiKey: this.key });
     return { id: c.id };
   }
 }` },
@@ -421,7 +424,7 @@ export const services = {
       state: { orders: 'ok', paysvc: 'ok' },
       blocks: [
         { lang: 'text', code: `POST /charges
-Idempotency-Key: order-8812-charge
+Idempotency-Key: "order-8812-charge"
 { "orderId": "8812", "amount": 12000, "currency": "EUR" }
 
 # retry after a timeout: same key, same body

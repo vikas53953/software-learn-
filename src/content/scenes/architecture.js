@@ -202,6 +202,7 @@ export const scenes = {
       const res = mk('line', { x1: 384, y1: y + 10, x2: 384, y2: y + 10, stroke: C[tone], 'stroke-width': 2.4, 'stroke-dasharray': tone === 'bad' ? '5 4' : '' });
       const sideT = tx(392, y + 4, side, { class: 's-note s-ink' });
       const respT = tx(240, y + 26, resp, { class: tone === 'ok' ? 's-grn' : 's-red', 'text-anchor': 'middle' });
+      if (tone === 'warn') respT.style.fill = C.warn; // an answer you can act on, not a failure
       return { req, res, sideT, respT, speed, tone, y };
     });
     const cap = tx(240, 288, 'A timeout tells you nothing about what happened.', { class: 's-cap', 'text-anchor': 'middle' });
