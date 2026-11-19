@@ -54,6 +54,12 @@ const layout = () => {
   });
   // Inline code is copied by learners: what they see must equal the source, spaces included.
   document.querySelectorAll('.lp code').forEach((c) => { if (!c.closest('pre') && c.innerText !== c.textContent) out.push(`inline code changes when shown: "${c.textContent}" shows as "${c.innerText}"`); });
+  // The rule behind that: inline code must keep spaces, and code blocks must not wrap (they scroll, so aligned code stays aligned).
+  document.querySelectorAll('.lp code').forEach((c) => {
+    const ws = getComputedStyle(c).whiteSpace;
+    if (c.closest('pre')) { if (ws !== 'pre') out.push(`code block wraps (white-space: ${ws})`); }
+    else if (!['pre', 'pre-wrap', 'break-spaces'].includes(ws)) out.push(`inline code collapses spaces (white-space: ${ws}): "${c.textContent}"`);
+  });
   const scene = document.querySelector('.lp-scene');
   if (scene?.isConnected) {
     const R = scene.getBoundingClientRect();
