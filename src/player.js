@@ -173,7 +173,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
       diagram?.destroy(); diagram = null;
       if (!sceneSvg.isConnected) canvas.replaceChildren(sceneSvg);
       sceneSvg.setAttribute('aria-label', s.title);
-      custom(K, { api, answered: answered.has(i), setTile, setSlider: (v) => { const r = card.querySelector('#lp-range'); if (r && +r.value !== v) r.value = v; const o = card.querySelector('.lp-range-v'); if (o) o.textContent = v; } });
+      custom(K, { api, step: s, answered: answered.has(i), setTile, setSlider: (v) => { const r = card.querySelector('#lp-range'); if (r && +r.value !== v) r.value = v; const o = card.querySelector('.lp-range-v'); if (o) o.textContent = v; } });
       return {};
     }
     if (!diagram) { canvas.replaceChildren(); diagram = new Diagram(canvas); }
