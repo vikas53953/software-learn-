@@ -77,3 +77,14 @@ The sweep passed through all of it. It checked phones on one lesson only and loo
 **What happened.** Fix-forward 1 on #4 added `git log -L :price:src/OrderService.ts` to the SRP lesson. The verifier ran it: git has no TypeScript function finder, so it fails on an indented method. The grid also said "+1 file, no edits" while step 7 says the startup file gains a line.
 
 **Rule.** Every command or code sample added to a lesson is run once by the author before the push (the regex range form `-L '/price(/,/^  }/:file'` was checked in a scratch repo). Numbers repeated across steps are checked against each other.
+
+## 13. What the learner copies is what counts (2026-11-19)
+
+**What happened.** Fix-forward 3 on #4 anchored the `git log -L` pattern to two spaces of indentation. It worked in a terminal, but inline code collapsed the two spaces into one on the page, so learners would copy a command that fails with "No match". The same hidden problem was in fix-forward 2 and its verdict missed it. Three tries on one line: the root cause was the page, not the regex.
+
+**Rule.**
+- Inline code keeps its spaces (`white-space: pre-wrap`), and the sweep fails when inline code reads differently on screen than in the source.
+- Commands in lessons avoid meaningful whitespace where a simpler form exists (a line range, not an indentation-anchored pattern).
+- A command is verified from what the page shows (innerText or a copy), not from the source file.
+
+Follow-up (fix-forward 5, 2026-11-19): the verifier FAILed 62fa569. `.lp code { white-space: pre-wrap }` also matched `<pre><code>`, so every code block wrapped instead of scrolling, and the new test could no longer fail because no inline code had a double space left. The rule is now scoped to `.lp :not(pre) > code`, and the sweep checks the computed style itself, so it fails whether or not today's content happens to trigger it. Lesson: a test for a rule should check the rule, not only the one example that exposed it; and a CSS fix needs its neighbours (here, code blocks) checked too.
