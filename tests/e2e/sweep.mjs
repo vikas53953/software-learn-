@@ -52,6 +52,8 @@ const layout = () => {
     const lr = l.getBoundingClientRect();
     for (const n of nodes) { const R = n.r; if (lr.right > R.left + 2 && lr.left < R.right - 2 && lr.bottom > R.top + 2 && lr.top < R.bottom - 2) out.push(`edge label "${l.textContent}" covers ${n.id}`); }
   });
+  // Inline code is copied by learners: what they see must equal the source, spaces included.
+  document.querySelectorAll('.lp code').forEach((c) => { if (!c.closest('pre') && c.innerText !== c.textContent) out.push(`inline code changes when shown: "${c.textContent}" shows as "${c.innerText}"`); });
   const scene = document.querySelector('.lp-scene');
   if (scene?.isConnected) {
     const R = scene.getBoundingClientRect();

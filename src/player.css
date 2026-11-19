@@ -2,7 +2,7 @@
    Phone: the stage sticks to the top, the card scrolls under it, Back / Play / Next sit in a bottom dock. */
 .lp { max-width: 1240px; margin: 0 auto; }
 .lp h1, .lp h2, .lp h3 { font-family: var(--display); line-height: 1.15; text-wrap: balance; margin: 0; }
-.lp code { font-family: var(--mono); font-size: .88em; font-variant-ligatures: none; background: var(--surface-2); border: 1px solid var(--line); padding: 1px 5px; border-radius: 6px; }
+.lp code { font-family: var(--mono); font-size: .88em; font-variant-ligatures: none; background: var(--surface-2); border: 1px solid var(--line); padding: 1px 5px; border-radius: 6px; white-space: pre-wrap; }
 
 /* Keycap buttons */
 .key { border: 2px solid var(--ink); border-radius: 14px; background: var(--surface); color: var(--ink); box-shadow: 0 4px 0 var(--ink); padding: 11px 18px; min-height: 44px; font: 700 15px/1 var(--display); cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 9px; text-decoration: none; transition: transform .06s, box-shadow .06s; }
