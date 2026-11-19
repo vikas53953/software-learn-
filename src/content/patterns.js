@@ -175,7 +175,7 @@ events.subscribe(e => analytics.track('order_placed', e.order));` },
     // run later; one listener's error stays with it
     setImmediate(async () => {
       try { await l(e); }
-      catch (err) { log.error({ err, event: e.type }); }
+      catch (err) { log.error({ err, order: e.order.id }); }
     });
   }
 }` },
@@ -264,7 +264,7 @@ COMMIT;
       blocks: [
         { ul: [
           '**Observer** removes the compile-time link between the thing that changes and the things that react.',
-          '**Synchronous by default:** isolate listeners and run them after the response.',
+          '**Synchronous by default:** isolate listeners so checkout does not wait for them.',
           '**Must not be lost?** Outbox in the same transaction, delivered at least once, so listeners must be idempotent.',
           '**Costs:** invisible flow, no ordering guarantees, leaks if you forget to unsubscribe.',
           '**Decisions stay direct calls;** observers react to facts.',
@@ -494,7 +494,7 @@ async function requestLogger(ctx, next) {
   await next(); // the rest of the chain runs here
   log.info(ctx.method, ctx.url, ctx.status, Date.now() - start);
 }` },
-        { p: '[[middleware|Middleware]] in Koa and ASP.NET Core, and interceptors in gRPC, run in the order you register them and wrap what comes after, so the "order matters" rules apply.' },
+        { p: '[[middleware|Middleware]] in Koa and ASP.NET Core runs in the order you register it and wraps what comes after, so the "order matters" rules apply. gRPC interceptors chain the same way, but which one runs first differs between language libraries, so check the docs for yours.' },
         { callout: 'warn', title: 'Express is different', text: 'Express also runs middleware in registration order, but `next()` does not hand the response back. An Express logger sees the result by listening for `res.on(\'finish\')`.' },
         { callout: 'tip', title: 'Not the same as @decorators', text: 'The `@log` syntax in TypeScript and Python is a language feature that wraps a class or a class member when it is defined (in Python, any function). It is related, but the Decorator **pattern** wraps objects at run time and works in any language.' },
       ],

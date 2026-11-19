@@ -66,7 +66,7 @@ export const scenes = {
       cur[0].setAttribute('x', 14 + a * (ends[0] - 17)); cur[1].setAttribute('x', 14 + b * 55);
       cur.forEach((c) => c.setAttribute('opacity', 1));
       res[1].setAttribute('opacity', b >= 1 ? 1 : 0); res[0].setAttribute('opacity', a >= 1 ? 1 : 0);
-      if (a >= 1) { cap.textContent = 'B answers 66 times sooner.'; sub.textContent = 'Cheapest checks first.'; }
+      if (a >= 1) { cap.textContent = 'B answers about 67 times sooner.'; sub.textContent = 'Cheapest checks first.'; }
       if (a >= 1) return false;
     });
     if (ctx.answered) ctx.api.reveal();
@@ -150,7 +150,7 @@ export const scenes = {
     const status = tx(240, 246, '', { class: 's-mono', 'text-anchor': 'middle' });
     const sub = tx(240, 272, 'two at a time (illustrative); both versions serve traffic', { class: 's-note s-ink', 'text-anchor': 'middle' });
     loop((T) => {
-      const t = k.reduced ? 7.5 : T % 13; // 5 batches of 2, 1.6 s each, then a pause
+      const t = k.reduced ? 4.2 : T % 13; // 5 batches of 2, 1.6 s each, then a pause
       const batch = Math.floor(t / 1.6), phase = (t % 1.6) / 1.6;
       let done = 0;
       cells.forEach(({ r, v, s }, i) => {
@@ -159,7 +159,7 @@ export const scenes = {
         if (st === 'new') done++;
         r.style.fill = st === 'new' ? 'var(--ok-soft)' : st === 'old' ? 'var(--violet-soft)' : 'var(--amber-soft)';
         v.textContent = st === 'old' ? 'v1.4' : 'v1.5';
-        s.textContent = st === 'new' ? 'serving' : st === 'old' ? 'serving' : st === 'starting' ? 'starting' : 'health check';
+        s.textContent = st === 'new' ? 'serving' : st === 'old' ? 'serving' : st === 'starting' ? 'starting' : 'checking';
       });
       status.textContent = `${done} of 10 on v1.5, no downtime`;
       sub.setAttribute('opacity', done > 0 && done < 10 ? 1 : 0.35);
@@ -170,9 +170,9 @@ export const scenes = {
   depExpand(k) {
     const { mk, tx, loop } = k;
     const P = [
-      ['1. Expand', ['price', 'price_cents  (new)'], 'v1.4 ✓   v1.5 ✓', 'add a column; old code ignores it'],
-      ['2. Migrate', ['price', 'price_cents'], 'v1.5 writes both', 'backfill; then read the new one'],
-      ['3. Contract', ['price  (dropped)', 'price_cents'], 'v1.6: new only', 'then drop price'],
+      ['1. Expand', ['price', 'price_cents  (new)'], 'v1.5 writes both', 'add column; backfill it'],
+      ['2. Switch reads', ['price', 'price_cents'], 'v1.6 reads new', 'still writes both; rollback safe'],
+      ['3. Contract', ['price  (dropped)', 'price_cents'], 'v1.7: new only', 'stop writing price; then drop it'],
     ];
     const cols = P.map(([title, rows, who, why], i) => {
       const x = 14 + i * 154, g = mk('g');
@@ -186,7 +186,7 @@ export const scenes = {
       });
       tx(x + 74, 178, who, { class: 's-mono', 'text-anchor': 'middle' }, g);
       tx(x + 74, 198, why.split('; ')[0], { class: 's-note s-ink', 'text-anchor': 'middle' }, g);
-      if (why.includes('; ')) tx(x + 74, 214, why.split('; ')[1], { class: 's-note s-ink', 'text-anchor': 'middle' }, g);
+      if (why.includes('; ')) tx(x + 74, 218, why.split('; ')[1], { class: 's-note s-ink', 'text-anchor': 'middle' }, g);
       return g;
     });
     tx(240, 262, 'Each step is its own deploy.', { class: 's-cap', 'text-anchor': 'middle' });

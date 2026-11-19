@@ -79,6 +79,7 @@ export const ci = {
       say: 'While a branch waits, main keeps moving. After two weeks the branch is 42 commits behind, and merging it means untangling conflicts nobody remembers writing.',
       read: { tiles: [tile('Long branch', '9 files', 'in conflict', 'bad'), tile('Daily merges', '0–1 file', 'per merge', 'good'), tile('Same work', 'same size', 'split differently')] },
       blocks: [
+        { callout: 'illus', title: 'About the numbers', text: 'Commit and conflict counts here are illustrative.' },
         { p: 'With [[trunk|trunk-based development]], everyone merges into main at least daily. Each merge is small, so conflicts are small, and everyone builds on the same up-to-date code.' },
         { callout: 'key', title: 'Unfinished work can still merge', text: 'Hide it behind a feature flag or keep it unreachable until it is ready. Merged is not the same as switched on; the deployment lesson shows how.' },
       ],
@@ -295,7 +296,7 @@ export const deploys = {
   steps: [
     {
       lvl: 'basics', label: 'Recreate', title: 'Stop the old version, then start the new one', done: 0,
-      say: 'The simplest strategy stops every instance of v1.4 and then starts v1.5. For a few minutes nothing serves requests.',
+      say: 'The simplest strategy stops every instance of v1.4 and then starts v1.5. Until the new instances are up, nothing serves requests.',
       add: ['users', 'lb', 'blue'],
       set: { blue: { label: 'Servers · v1.4', sub: 'stopping…' } },
       edges: [['users', 'lb'], ['lb', 'blue', { tone: 'bad', dash: true }]],
@@ -313,7 +314,7 @@ export const deploys = {
       say: 'Replace two instances at a time. Each new one must pass its health check before the next two are replaced, so the service never goes dark.',
       read: { tiles: [tile('Downtime', '0', 'always some instances up', 'good'), tile('Versions live', '2', 'during the rollout'), tile('Rollback', 'another rollout', 'minutes, not seconds')] },
       blocks: [
-        { p: 'This is the default for a Kubernetes Deployment (`strategy.type: RollingUpdate`, with `maxUnavailable` and `maxSurge` both 25% unless you change them). A new pod only gets traffic once its [[health|health check]] (its readiness probe, if you define one) passes.' },
+        { p: 'This is the default for a Kubernetes Deployment (`strategy.type: RollingUpdate`, with `maxUnavailable` and `maxSurge` both 25% unless you change them). A new pod gets traffic once it is ready: if you define a readiness probe ([[health|health check]]), that probe must pass; with no probe, Kubernetes counts the pod as ready as soon as its containers start.' },
         { callout: 'key', title: 'The catch', text: 'For a while, v1.4 and v1.5 both serve traffic against the same database. They must both work with whatever schema is there.' },
       ],
     },
@@ -372,24 +373,29 @@ export const deploys = {
     },
     {
       lvl: 'intermediate', label: 'Expand, contract', title: 'Change the schema in three deploys', scene: 'depExpand', done: 3,
-      say: 'To rename a column safely, add the new one first, move the data while new code writes both, switch reads to the new one, and drop the old one only when no running version reads or writes it.',
-      read: { tiles: [tile('Deploys', '3', 'each one small'), tile('Broken requests', '0', 'at every step', 'good'), tile('Old column', 'dropped last', 'the one step with no undo', 'bad')] },
+      say: 'To rename a column safely: add the new one and have v1.5 write both while you backfill; switch reads in v1.6 while it still writes both; and drop the old column only after v1.7, which writes just the new one, is fully out.',
+      read: { tiles: [tile('Deploys', '3', 'then the drop'), tile('Broken requests', '0', 'at every step', 'ok'), tile('Old column', 'dropped last', 'the one step with no undo', 'bad')] },
       blocks: [
         { lang: 'sql', code: `-- 1. expand
 ALTER TABLE products
   ADD COLUMN price_cents integer;
 
--- 2. v1.5 writes both; backfill in batches
+-- v1.5 writes both; backfill in batches
 UPDATE products
   SET price_cents = round(price * 100)
   WHERE price_cents IS NULL
     AND id BETWEEN $1 AND $2;
 
--- 3. contract: v1.6 no longer reads
---    or writes price
+-- 2. v1.6 reads price_cents, still
+--    writes both; let price be empty
+ALTER TABLE products
+  ALTER COLUMN price DROP NOT NULL;
+
+-- 3. contract: once v1.7 (writes only
+--    price_cents) is fully rolled out
 ALTER TABLE products
   DROP COLUMN price;` },
-        { p: 'This is [[expand|expand and contract]] (also called parallel change). Until the final drop, every step is backward compatible, so the code can still be rolled back. The drop is the one step you cannot undo without a restore, so it comes last, on its own.' },
+        { p: 'This is [[expand|expand and contract]] (also called parallel change). At every moment the running versions agree on the schema, and each release can roll back to the one before: v1.6 still writes `price`, so v1.5 keeps working if you return to it. The drop is the one step you cannot undo without a restore, so it comes last, on its own.' },
         { callout: 'tip', title: 'Big tables', text: 'Backfill in batches (for example, a few thousand rows per query) so one huge UPDATE does not lock the table or flood replication.' },
       ],
     },
@@ -438,7 +444,7 @@ spec:
       state: { green: 'bad' },
       metrics: { share: '0%', err: '0.1%', rollback: 'automatic' },
       blocks: [
-        { p: 'Total impact: 5% of users for a few minutes, instead of everyone until someone notices.' },
+        { p: 'Total impact: 5% of users for the nine minutes the canary ran, instead of everyone until someone notices.' },
         { p: 'Next: reproduce the failure, fix it, and start a new canary with the fixed version. Nobody had to roll back by hand.' },
       ],
     },
