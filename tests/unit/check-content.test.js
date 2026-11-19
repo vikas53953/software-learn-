@@ -26,4 +26,16 @@ describe('content checker (format 2)', () => {
     expect(run(lesson([step({ check: { ...choice, ans: 5, opts: [{ t: 'a', hint: 'h' }] } })]))).toEqual(['x step 1: answer out of range']);
     expect(run(lesson([step({ check: { type: 'quiz' } })]))).toEqual(['x step 1: bad check type quiz']);
   });
+  it('rejects a map that is missing a node or zone, or puts one outside 480×300', () => {
+    const nodes = { a: { x: 100, y: 100, label: 'A' }, b: { x: 200, y: 100, label: 'B', sub: 's' } };
+    const zones = { z: { x: 10, y: 10, w: 100, h: 100, label: 'Z' } };
+    const ok = { nodes: { a: [60, 40, 100], b: [200, 40, 100] }, zones: { z: [0, 0, 480, 300] } };
+    expect(run(lesson([step()], { nodes, zones, map: ok }))).toEqual([]);
+    expect(run(lesson([step()], { nodes, zones, map: { ...ok, nodes: { a: ok.nodes.a } } }))).toEqual(['x step 0: map has no place for node b']);
+    expect(run(lesson([step()], { nodes, zones, map: { ...ok, nodes: { ...ok.nodes, a: [440, 40, 100] } } }))).toEqual(['x step 0: map node a outside 480×300']);
+    // b has a sub-label, so it is 44 tall: y 280 reaches 302.
+    expect(run(lesson([step()], { nodes, zones, map: { ...ok, nodes: { ...ok.nodes, b: [200, 280, 100] } } }))).toEqual(['x step 0: map node b outside 480×300']);
+    expect(run(lesson([step()], { nodes, zones, map: { ...ok, zones: {} } }))).toEqual(['x step 0: map has no place for zone z']);
+    expect(run(lesson([step()], { nodes, zones, map: { ...ok, zones: { z: [0, 0, 481, 300] } } }))).toEqual(['x step 0: map zone z outside 480×300']);
+  });
 });

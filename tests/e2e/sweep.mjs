@@ -3,6 +3,10 @@
 // Set EVIDENCE=<dir> to save screenshots of each lesson's first and last step.
 import { chromium } from 'playwright';
 import { mkdirSync } from 'node:fs';
+import { LESSONS } from '../../src/content/index.js';
+
+// Every step of every lesson must be swept; the count comes from the content itself.
+const TOTAL = LESSONS.reduce((n, l) => n + l.steps.length, 0);
 
 const BASE = process.env.BASE_URL || 'http://localhost:4173/';
 const EV = process.env.EVIDENCE;
@@ -33,19 +37,28 @@ async function page(viewport, colorScheme = 'light') {
 // Layout checks for the current step, run inside the page.
 const layout = () => {
   const out = [];
-  const nodes = [...document.querySelectorAll('.node:not(.is-hidden)')].map((g) => ({ id: g.dataset.id, r: g.querySelector('.node-body').getBoundingClientRect(), g }));
+  // Diagram nodes and the compact map nodes (src/mapscene.js) get the same checks.
+  const nodes = [...document.querySelectorAll('.node:not(.is-hidden), .map-node')].map((g) => ({ id: g.dataset.id, r: g.querySelector('.node-body, .map-body').getBoundingClientRect(), g }));
   for (let a = 0; a < nodes.length; a++) for (let c = a + 1; c < nodes.length; c++) {
     const A = nodes[a].r, C = nodes[c].r;
     if (Math.min(A.right, C.right) - Math.max(A.left, C.left) > 2 && Math.min(A.bottom, C.bottom) - Math.max(A.top, C.top) > 2) out.push(`nodes overlap: ${nodes[a].id} / ${nodes[c].id}`);
   }
-  for (const n of nodes) n.g.querySelectorAll('.node-label, .node-sub').forEach((t) => {
+  for (const n of nodes) n.g.querySelectorAll('.node-label, .node-sub, .m-lbl, .m-sub').forEach((t) => {
     if (t.style.display === 'none') return;
     const tr = t.getBoundingClientRect(), b = n.r;
     if (tr.width && (tr.right > b.right + 1 || tr.left < b.left - 1 || tr.top < b.top - 1 || tr.bottom > b.bottom + 1)) out.push(`text overflows ${n.id}: "${t.textContent}" (text ${tr.left.toFixed(1)}..${tr.right.toFixed(1)}, box ${b.left.toFixed(1)}..${b.right.toFixed(1)}, textLength ${[...t.querySelectorAll('tspan')].map((x) => x.getAttribute('textLength') || '-').join('/')}, measured ${[...t.querySelectorAll('tspan')].map((x) => x.getComputedTextLength().toFixed(1)).join('/')}, font "${getComputedStyle(t).fontFamily}", fonts ${document.fonts.status})`);
   });
-  document.querySelectorAll('.edge-label:not(.is-leaving)').forEach((l) => {
+  document.querySelectorAll('.edge-label:not(.is-leaving), .map-elbl').forEach((l) => {
     const lr = l.getBoundingClientRect();
     for (const n of nodes) { const R = n.r; if (lr.right > R.left + 2 && lr.left < R.right - 2 && lr.bottom > R.top + 2 && lr.top < R.bottom - 2) out.push(`edge label "${l.textContent}" covers ${n.id}`); }
+  });
+  // Inline code is copied by learners: what they see must equal the source, spaces included.
+  document.querySelectorAll('.lp code').forEach((c) => { if (!c.closest('pre') && c.innerText !== c.textContent) out.push(`inline code changes when shown: "${c.textContent}" shows as "${c.innerText}"`); });
+  // The rule behind that: inline code must keep spaces, and code blocks must not wrap (they scroll, so aligned code stays aligned).
+  document.querySelectorAll('.lp code').forEach((c) => {
+    const ws = getComputedStyle(c).whiteSpace;
+    if (c.closest('pre')) { if (ws !== 'pre') out.push(`code block wraps (white-space: ${ws})`); }
+    else if (!['pre', 'pre-wrap', 'break-spaces'].includes(ws)) out.push(`inline code collapses spaces (white-space: ${ws}): "${c.textContent}"`);
   });
   const scene = document.querySelector('.lp-scene');
   if (scene?.isConnected) {
@@ -91,7 +104,7 @@ for (const href of hrefs) {
   }
   if (EV) await p.screenshot({ path: `${EV}/${slug}-last.png` });
 }
-if (steps !== 123) fail(`expected 123 steps, swept ${steps}`);
+if (steps !== TOTAL) fail(`expected ${TOTAL} steps, swept ${steps}`);
 
 // 2. Search, theme, drawer, Play, definition, glossary, checks, slider, finish.
 await p.goto(BASE + '#/single-responsibility/1');
@@ -154,6 +167,21 @@ await p.click('.lp-finish a.go');
 await p.waitForTimeout(300);
 if (!(await p.evaluate(() => location.hash)).startsWith('#/ci-pipeline/1')) fail('the finish card did not open the next lesson');
 
+// 2a. Lesson-specific wording stays in its lesson, and feedback renders markdown (verifier survivors on #4).
+{
+  const srp = LESSONS.find((l) => l.slug === 'single-responsibility'), mi = srp.steps.findIndex((s) => s.check?.type === 'match');
+  const mc = srp.steps[mi].check;
+  await p.goto(BASE + `#/single-responsibility/${mi + 1}`); await p.waitForTimeout(300);
+  for (const [k, b] of mc.bugs.entries()) await p.click(`.bug[data-bug="${k}"] .lp-bin[data-bin="${(b.a + 1) % mc.bins.length}"]`);
+  await p.click('[data-lp="check"]'); await p.waitForTimeout(200);
+  if (/smallest thing that has to run/.test(await p.textContent('.lp-fb p'))) fail('a pyramid-only hint shows on the SRP match check');
+  const lsp = LESSONS.find((l) => l.slug === 'liskov-substitution'), ci = lsp.steps.findIndex((s) => s.check && /`/.test(s.check.why));
+  await p.goto(BASE + `#/liskov-substitution/${ci + 1}`); await p.waitForTimeout(300);
+  await p.click(`.lp-opt[data-opt="${lsp.steps[ci].check.ans}"]`); await p.click('[data-lp="check"]'); await p.waitForTimeout(200);
+  const fbp = await p.$eval('.lp-fb p', (e) => [e.textContent, e.querySelectorAll('code').length]);
+  if (fbp[0].includes('`') || !fbp[1]) fail(`feedback shows raw markdown: "${fbp[0].slice(0, 80)}"`);
+}
+
 // 2b. Play with Voice on keeps going whether speech ends early, late or never (a browser with no voices never ends it).
 for (const mode of ['ends', 'never']) {
   const v = await page({ width: 1440, height: 900 });
@@ -204,7 +232,7 @@ for (const href of hrefs) {
     for (const x of await ph.evaluate(layout)) if (!x.startsWith('page scrolls')) fail(`phone ${slug} step ${i}: ${x}`);
   }
 }
-if (phoneSteps !== 123) fail(`phone: expected 123 steps, swept ${phoneSteps}`);
+if (phoneSteps !== TOTAL) fail(`phone: expected ${TOTAL} steps, swept ${phoneSteps}`);
 
 await browser.close();
 console.log(`swept ${hrefs.length} lessons, ${steps} steps`);
