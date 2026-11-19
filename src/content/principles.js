@@ -189,7 +189,7 @@ export const srp = {
       read: { term: [['cmd', 'git log --since="6 months ago" --format=%an -- src/OrderService.ts | sort | uniq -c | sort -rn'], ['dim', '  41 Priya'], ['dim', '  33 Tom'], ['dim', '  19 Ana'], ['dim', '  17 Sam']] },
       blocks: [
         { p: 'Two questions find the seams in a big class:' },
-        { ol: ['**Who changes it?** Count commit authors per file, then map each author to their team (Priya is in Finance, Tom in Marketing, and so on). Four teams on one file means four reasons to change.', '**What changes together?** Look at which files are edited in the same commits. To follow one method, give git a line range by pattern: `git log -L \'/price(/,/^  }/:src/OrderService.ts\'`. Code that always moves together belongs together.'] },
+        { ol: ['**Who changes it?** Count commit authors per file, then map each author to their team (Priya is in Finance, Tom in Marketing, and so on). Four teams on one file means four reasons to change.', '**What changes together?** Look at which files are edited in the same commits. To follow one method, give git a line range by pattern: `git log -L \'/^  price(/,/^  }/:src/OrderService.ts\'`. Code that always moves together belongs together.'] },
         { lang: 'bash', code: `# who changes this file? (authors, most frequent first)
 git log --since="6 months ago" --format=%an -- src/OrderService.ts \\
   | sort | uniq -c | sort -rn
