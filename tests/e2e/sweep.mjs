@@ -52,10 +52,25 @@ const layout = () => {
     const lr = l.getBoundingClientRect();
     for (const n of nodes) { const R = n.r; if (lr.right > R.left + 2 && lr.left < R.right - 2 && lr.bottom > R.top + 2 && lr.top < R.bottom - 2) out.push(`edge label "${l.textContent}" covers ${n.id}`); }
   });
+  // Inline code is copied by learners: what they see must equal the source, spaces included.
+  document.querySelectorAll('.lp code').forEach((c) => { if (!c.closest('pre') && c.innerText !== c.textContent) out.push(`inline code changes when shown: "${c.textContent}" shows as "${c.innerText}"`); });
+  // The rule behind that: inline code must keep spaces, and code blocks must not wrap (they scroll, so aligned code stays aligned).
+  document.querySelectorAll('.lp code').forEach((c) => {
+    const ws = getComputedStyle(c).whiteSpace;
+    if (c.closest('pre')) { if (ws !== 'pre') out.push(`code block wraps (white-space: ${ws})`); }
+    else if (!['pre', 'pre-wrap', 'break-spaces'].includes(ws)) out.push(`inline code collapses spaces (white-space: ${ws}): "${c.textContent}"`);
+  });
   const scene = document.querySelector('.lp-scene');
   if (scene?.isConnected) {
     const R = scene.getBoundingClientRect();
     scene.querySelectorAll('text').forEach((t) => { const r = t.getBoundingClientRect(); if (r.width && t.getAttribute('opacity') !== '0' && (r.left < R.left - 1 || r.right > R.right + 1 || r.top < R.top - 1 || r.bottom > R.bottom + 1)) out.push(`scene text outside the diagram: "${t.textContent}"`); });
+    // A group of one rect plus text is a box or chip: its text must fit inside it, side to side.
+    scene.querySelectorAll('g').forEach((g) => {
+      const box = g.firstElementChild;
+      if (box?.tagName !== 'rect' || g.querySelectorAll(':scope > rect, :scope > g').length !== 1) return;
+      const B = box.getBoundingClientRect();
+      g.querySelectorAll(':scope > text').forEach((t) => { const r = t.getBoundingClientRect(); if (r.width && (r.left < B.left - 1 || r.right > B.right + 1)) out.push(`scene text overflows its box: "${t.textContent}"`); });
+    });
     // A shape built with a fill or stroke must keep it: overwriting its style attribute wipes var() colours (black boxes, lost outlines).
     scene.querySelectorAll('rect, circle, path, polygon').forEach((s) => {
       if (s.closest('marker, defs')) return;
