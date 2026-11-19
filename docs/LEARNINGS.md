@@ -59,7 +59,6 @@ The sweep passed through all of it. It checked phones on one lesson only and loo
 - Numbers read from storage are validated before use.
 - On phones, old diagram lessons now fit the whole diagram to the width instead of panning (this replaces the panning rule in entry 2 for the new player). Their scenes are rebuilt in the module PRs.
 
-
 ## 9. Module 1 review: tiny phone diagrams, a leaked hint, stale stages (2026-11-18)
 
 **What happened.** Fable and the verifier both reviewed PR #4 (Module 1). The verifier gave a FAIL: the Testing Pyramid's "smallest thing that has to run" hint was hard-coded for every match check, so it showed on the SRP "split or keep together" check; and the "Split safely" terminal had unlabelled numbers. Fable found phone diagram text at 5–6.5 px, raw backticks in feedback and glossary text, and 13 steps whose stage did not change.
@@ -95,3 +94,14 @@ The sweep passed through all of it. It checked phones on one lesson only and loo
 - Every schema step names which versions run against it and what each reads and writes; "rollback-safe" is checked against the previous version, not the current one.
 - The sweep checks that text in a box or chip fits inside that box (`scene text overflows its box`); scenes choose a reduced-motion frame that shows their busiest state.
 - Tile tones `ok` and `good` render the same.
+
+## 13. What the learner copies is what counts (2026-11-19)
+
+**What happened.** Fix-forward 3 on #4 anchored the `git log -L` pattern to two spaces of indentation. It worked in a terminal, but inline code collapsed the two spaces into one on the page, so learners would copy a command that fails with "No match". The same hidden problem was in fix-forward 2 and its verdict missed it. Three tries on one line: the root cause was the page, not the regex.
+
+**Rule.**
+- Inline code keeps its spaces (`white-space: pre-wrap`), and the sweep fails when inline code reads differently on screen than in the source.
+- Commands in lessons avoid meaningful whitespace where a simpler form exists (a line range, not an indentation-anchored pattern).
+- A command is verified from what the page shows (innerText or a copy), not from the source file.
+
+Follow-up (fix-forward 5, 2026-11-19): the verifier FAILed 62fa569. `.lp code { white-space: pre-wrap }` also matched `<pre><code>`, so every code block wrapped instead of scrolling, and the new test could no longer fail because no inline code had a double space left. The rule is now scoped to `.lp :not(pre) > code`, and the sweep checks the computed style itself, so it fails whether or not today's content happens to trigger it. Lesson: a test for a rule should check the rule, not only the one example that exposed it; and a CSS fix needs its neighbours (here, code blocks) checked too.
