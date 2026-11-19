@@ -90,7 +90,7 @@
 .lp-tile b.long { font-size: 16px; }
 .lp-tile span, .lp-tile em { overflow-wrap: anywhere; }
 .lp-tile em { font-style: normal; font-size: 12.5px; line-height: 1.3; color: var(--muted); }
-.lp-tile.good { border-color: var(--ok); background: var(--ok-soft); } .lp-tile.bad { border-color: var(--bad); background: var(--bad-soft); }
+.lp-tile.good, .lp-tile.ok { border-color: var(--ok); background: var(--ok-soft); } .lp-tile.bad { border-color: var(--bad); background: var(--bad-soft); }
 .lp-rnote { height: 120px; display: grid; place-items: center; border: 2px dashed var(--line); border-radius: 12px; color: var(--muted); font: 600 15px/1.4 var(--display); text-align: center; padding: 0 16px; }
 .lp-caption { padding: 12px 16px 4px; margin: 0; min-height: 74px; font: 600 16px/1.45 var(--display); }
 .lp-player { display: flex; align-items: center; gap: 10px; padding: 8px 14px 14px; }
@@ -182,7 +182,7 @@
 .lp-scene .s-note { font: 400 10.5px var(--mono); fill: var(--muted); }
 .lp-scene .s-ink { fill: var(--ink); }
 .lp-scene .s-white { fill: #fff; }
-.lp-scene .s-mono { font: 600 11.5px var(--mono); fill: var(--ink); }
+.lp-scene .s-mono { font: 600 12px var(--mono); fill: var(--ink); }
 .lp-scene .s-monob { font: 700 13px var(--mono); fill: var(--ink); }
 .lp-scene .s-red { font: 700 11.5px var(--mono); fill: var(--bad); }
 .lp-scene .s-grn { font: 700 11.5px var(--mono); fill: var(--ok); }
@@ -238,4 +238,4 @@
 .lp-scene .m-sub { font: 500 11px var(--mono); fill: var(--muted); }
 .lp-scene .m-elbl { font: 600 11px var(--mono); fill: var(--ink); }
 .lp-scene .m-zone { font: 700 11px var(--mono); letter-spacing: .04em; fill: var(--muted); }
-.lp-scene .s-code { font: 500 12px var(--mono); fill: var(--code-ink); }
+.lp-scene .s-code { font: 500 12px var(--mono); fill: var(--code-ink); font-variant-ligatures: none; }

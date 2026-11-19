@@ -233,7 +233,7 @@ export function mountLesson(main, l, { step = 0, nextLesson, onStep }) {
       if (c.type !== 'predict' && tries[i] === 1) firstTry++;
       store.set('lb:xp', store.get('lb:xp', 0) + gain);
       btn.hidden = true; markSolved(c); unlock();
-      if (c.type === 'predict') { feedback(true, right ? `Spot on! +${gain} XP` : `Locked in. +${gain} XP`, (g.hint || '') + c.why); api.reveal?.(); }
+      if (c.type === 'predict') { feedback(true, right ? `Spot on! +${gain} XP` : `Locked in. +${gain} XP`, [g.hint, c.why].filter(Boolean).join(' ')); api.reveal?.(); }
       else feedback(true, tries[i] === 1 ? `Correct! +${gain} XP` : `Got it. +${gain} XP`, c.type === 'match' ? c.bugs.map((b) => b.why).join(' ') : c.why);
     });
   }

@@ -64,6 +64,13 @@ const layout = () => {
   if (scene?.isConnected) {
     const R = scene.getBoundingClientRect();
     scene.querySelectorAll('text').forEach((t) => { const r = t.getBoundingClientRect(); if (r.width && t.getAttribute('opacity') !== '0' && (r.left < R.left - 1 || r.right > R.right + 1 || r.top < R.top - 1 || r.bottom > R.bottom + 1)) out.push(`scene text outside the diagram: "${t.textContent}"`); });
+    // A group of one rect plus text is a box or chip: its text must fit inside it, side to side.
+    scene.querySelectorAll('g').forEach((g) => {
+      const box = g.firstElementChild;
+      if (box?.tagName !== 'rect' || g.querySelectorAll(':scope > rect, :scope > g').length !== 1) return;
+      const B = box.getBoundingClientRect();
+      g.querySelectorAll(':scope > text').forEach((t) => { const r = t.getBoundingClientRect(); if (r.width && (r.left < B.left - 1 || r.right > B.right + 1)) out.push(`scene text overflows its box: "${t.textContent}"`); });
+    });
     // A shape built with a fill or stroke must keep it: overwriting its style attribute wipes var() colours (black boxes, lost outlines).
     scene.querySelectorAll('rect, circle, path, polygon').forEach((s) => {
       if (s.closest('marker, defs')) return;
@@ -181,6 +188,13 @@ if (!(await p.evaluate(() => location.hash)).startsWith('#/ci-pipeline/1')) fail
   await p.click(`.lp-opt[data-opt="${lsp.steps[ci].check.ans}"]`); await p.click('[data-lp="check"]'); await p.waitForTimeout(200);
   const fbp = await p.$eval('.lp-fb p', (e) => [e.textContent, e.querySelectorAll('code').length]);
   if (fbp[0].includes('`') || !fbp[1]) fail(`feedback shows raw markdown: "${fbp[0].slice(0, 80)}"`);
+  // A wrong prediction shows the option's feedback and then the explanation, with a space between (verifier note on #6).
+  const dbl = LESSONS.find((l) => l.slug === 'test-doubles'), pi = dbl.steps.findIndex((s) => s.check?.type === 'predict');
+  const pc = dbl.steps[pi].check, wrong = pc.opts.findIndex((_, k) => k !== pc.ans && pc.fb[k]);
+  await p.goto(BASE + `#/test-doubles/${pi + 1}`); await p.waitForTimeout(300);
+  await p.click(`.lp-opt[data-opt="${wrong}"]`); await p.click('[data-lp="check"]'); await p.waitForTimeout(200);
+  const pf = await p.textContent('.lp-fb p');
+  if (/[a-z]\.[A-Z]/.test(pf)) fail(`predict feedback runs two sentences together: "${pf.slice(0, 90)}"`);
 }
 
 // 2b. Play with Voice on keeps going whether speech ends early, late or never (a browser with no voices never ends it).

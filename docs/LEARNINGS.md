@@ -77,6 +77,24 @@ The sweep passed through all of it. It checked phones on one lesson only and loo
 
 **Rule.** Every command or code sample added to a lesson is run once by the author before the push (the regex range form `-L '/price(/,/^  }/:file'` was checked in a scratch repo). Numbers repeated across steps are checked against each other.
 
+## 11. Run commands against the lesson's own example, and labels must match the claim (2026-11-18)
+
+**What happened.** Fix-forward 2 on #4 still failed: the unanchored `/price(/` matched the `this.price(cart)` call inside `checkout()` before the `price()` method, so `git log -L` followed the wrong code with no error. My scratch repo had `price()` first, so the check passed for the wrong reason. On #5 the decorator scene labelled the outer log line "3 tries", which the outer layer cannot know. On #6 a wrong prediction joined the option's feedback and the explanation with no space.
+
+**Rule.**
+- A command in a lesson is tested on a file shaped like the lesson's own code sample, not a convenient one. Regex ranges are anchored (`/^  price(/`).
+- Every scene label is read against the step's claim: what can this component actually see?
+- The player joins feedback parts with a space; the sweep checks a wrong prediction (`tests/e2e/sweep.mjs` 2a).
+
+## 12. A schema change is only safe if the version you roll back to still works (2026-11-18)
+
+**What happened.** The verifier failed #7: the expand/contract step had v1.6 stop reading and writing `price` in the same release that switched reads, so a rollback to v1.5 (which still reads `price`) would break, while the text said every step was rollback-safe. The rolling-update scene's "health check" label overflowed its 76-unit cell on phones; the sweep only checked text against the whole diagram, not against the box it sits in. Separately, the PR #8 verifier found that tile tone `ok` had no CSS, so tiles marked `ok` rendered neutral.
+
+**Rule.**
+- Every schema step names which versions run against it and what each reads and writes; "rollback-safe" is checked against the previous version, not the current one.
+- The sweep checks that text in a box or chip fits inside that box (`scene text overflows its box`); scenes choose a reduced-motion frame that shows their busiest state.
+- Tile tones `ok` and `good` render the same.
+
 ## 13. What the learner copies is what counts (2026-11-19)
 
 **What happened.** Fix-forward 3 on #4 anchored the `git log -L` pattern to two spaces of indentation. It worked in a terminal, but inline code collapsed the two spaces into one on the page, so learners would copy a command that fails with "No match". The same hidden problem was in fix-forward 2 and its verdict missed it. Three tries on one line: the root cause was the page, not the regex.

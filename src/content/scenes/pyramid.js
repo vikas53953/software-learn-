@@ -270,8 +270,8 @@ export const scenes = {
     tx(240, 22, 'In a unit test, Checkout talks to stand-ins', { class: 's-cap', 'text-anchor': 'middle' });
     const ck = mk('rect', { x: 182, y: 118, width: 116, height: 60, rx: 12, fill: 'var(--l1)', stroke: 'var(--ink)', 'stroke-width': 2.4 }); tx(240, 153, 'Checkout', { class: 's-lbl', 'text-anchor': 'middle' });
     const deps = [
-      { x: 16, y: 40, real: ['Payments API', 'real money, slow'], dbl: ['MOCK', 'expects charge(9000)'], lx: 156, ly: 70, ex: 182, ey: 132 },
-      { x: 16, y: 210, real: ['Postgres', 'real database, slow'], dbl: ['FAKE', 'orders in memory'], lx: 156, ly: 240, ex: 182, ey: 164 },
+      { x: 16, y: 40, real: ['Payments API', 'real money, slow'], dbl: ['MOCK', 'expects 9000'], lx: 156, ly: 70, ex: 182, ey: 132 },
+      { x: 16, y: 210, real: ['Postgres', 'real DB, slow'], dbl: ['FAKE', 'orders in memory'], lx: 156, ly: 240, ex: 182, ey: 164 },
       { x: 324, y: 118, real: ['Tax service', 'another team'], dbl: ['STUB', 'rate is always 0'], lx: 324, ly: 148, ex: 298, ey: 148 },
     ];
     deps.forEach((d) => {
@@ -298,14 +298,14 @@ export const scenes = {
     mk('line', { x1: 146, y1: 147, x2: 334, y2: 147, stroke: 'var(--muted)', 'stroke-width': 1.6, 'stroke-dasharray': '4 5' });
     mk('path', { d: 'M194,40 L272,40 L286,54 L286,96 L194,96 Z', fill: 'var(--surface)', stroke: 'var(--ink)', 'stroke-width': 2 });
     tx(240, 64, 'pact', { class: 's-monob', 'text-anchor': 'middle' }); tx(240, 82, 'the contract', { class: 's-note', 'text-anchor': 'middle' });
-    const env = token(152, 'var(--surface)'); env.set('{ amountCents: 9000 }');
+    const env = token(172, 'var(--surface)'); env.set('{ amountCents: 9000 }');
     const verdict = tx(240, 222, '', { class: 's-grn', 'text-anchor': 'middle' }), sub = tx(240, 242, '', { class: 's-note', 'text-anchor': 'middle' });
     const stamp = mk('g', { opacity: 0 }); mk('rect', { x: 150, y: 256, width: 180, height: 30, rx: 10, fill: 'var(--bad-soft)', stroke: 'var(--bad)', 'stroke-width': 2 }, stamp); tx(240, 276, 'deploy blocked', { class: 's-red', 'text-anchor': 'middle' }, stamp);
     loop((t) => {
       const T = t % 9, renamed = T > 4.4;
       ps.textContent = renamed ? 'now reads amount' : 'reads amountCents'; ps.setAttribute('class', renamed ? 's-red' : 's-note s-ink');
       const lap = T < 4.4 ? seg(T, 0.4, 2.2) : seg(T, 4.8, 6.6);
-      env.at(lerp(150, 182, lap), 147, (T > 0.3 && T < 2.8) || (T > 4.7 && T < 7.2) ? 1 : 0);
+      env.at(lerp(146, 162, lap), 147, (T > 0.3 && T < 2.8) || (T > 4.7 && T < 7.2) ? 1 : 0);
       if (T < 2.4) { verdict.textContent = ''; sub.textContent = ''; }
       else if (T < 4.4) { verdict.textContent = '✓ contract replayed: 201 Created'; verdict.setAttribute('class', 's-grn'); sub.textContent = 'Payments CI checks the pact on every build'; }
       else if (T < 6.8) { verdict.textContent = ''; sub.textContent = 'Payments renames the field…'; }
