@@ -105,3 +105,7 @@ The sweep passed through all of it. It checked phones on one lesson only and loo
 - A command is verified from what the page shows (innerText or a copy), not from the source file.
 
 Follow-up (fix-forward 5, 2026-11-19): the verifier FAILed 62fa569. `.lp code { white-space: pre-wrap }` also matched `<pre><code>`, so every code block wrapped instead of scrolling, and the new test could no longer fail because no inline code had a double space left. The rule is now scoped to `.lp :not(pre) > code`, and the sweep checks the computed style itself, so it fails whether or not today's content happens to trigger it. Lesson: a test for a rule should check the rule, not only the one example that exposed it; and a CSS fix needs its neighbours (here, code blocks) checked too.
+
+## 14. Code samples are compiled, not read (2026-11-19)
+
+The verifier on PR #9 (Module 6) put the hexagonal lesson's TypeScript files side by side and ran `tsc` on them. Two failed: the PayCo adapter imported `Order` and `Money` from `core/ports`, which does not export them, and the composition root passed a key to a class with no constructor. Each file looked right on its own; only the set of them was wrong. Fix-forward 1 imports from `core/order`, gives the adapter a constructor that takes the key, and was compiled with the verifier's harness (exit 0). Lesson: when a lesson shows several files of one program, compile them together before review.
